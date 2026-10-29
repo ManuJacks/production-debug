@@ -1,0 +1,67 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Linters & IDEs
+.ruff_cache/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment files & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.token
+
+# Blueprints, Career planning & Personal notes (Ignored for public repo)
+*blueprint*
+*BLUEPRINT*
+*career*
+*linkedin*
+*LINKEDIN*
+personal/
+notes/
+todo.txt
+
+# OS Generated
+.DS_Store
+Thumbs.db
