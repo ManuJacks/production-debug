@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: debug-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prod-debug-sa
+  namespace: debug-system
+  annotations:
+    # Azure Workload Identity annotation for zero-secret auth
+    azure.workload.identity/client-id: "PLACEHOLDER_AZURE_CLIENT_ID"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prod-debug-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "events", "nodes", "services", "endpoints", "configmaps", "namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "networkpolicies"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prod-debug-reader-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prod-debug-reader
+subjects:
+- kind: ServiceAccount
+  name: prod-debug-sa
+  namespace: debug-system

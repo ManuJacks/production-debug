@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SessionProfile",
+  "description": "Schema for a prod_support_tmux session profile",
+  "type": "object",
+  "required": ["session_name", "window_name", "panes"],
+  "additionalProperties": false,
+  "properties": {
+    "session_name": {
+      "type": "string",
+      "description": "tmux session name. Supports ${ENV_VAR} expansion.",
+      "minLength": 1
+    },
+    "window_name": {
+      "type": "string",
+      "description": "tmux window name.",
+      "minLength": 1
+    },
+    "sync_panes": {
+      "type": "boolean",
+      "description": "Enable synchronize-panes so keystrokes are broadcast to all panes.",
+      "default": false
+    },
+    "session_width": {
+      "type": "integer",
+      "description": "Initial session width in columns.",
+      "minimum": 1,
+      "default": 240
+    },
+    "session_height": {
+      "type": "integer",
+      "description": "Initial session height in rows.",
+      "minimum": 1,
+      "default": 70
+    },
+    "panes": {
+      "type": "array",
+      "description": "Ordered list of pane definitions.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["title", "command"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Display title for the pane.",
+            "minLength": 1
+          },
+          "command": {
+            "type": "string",
+            "description": "Shell command to run in the pane. Supports ${ENV_VAR} expansion.",
+            "minLength": 1
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory for the pane. Supports ${ENV_VAR} expansion."
+          }
+        }
+      }
+    }
+  }
+}

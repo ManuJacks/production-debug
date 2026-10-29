@@ -1,0 +1,10 @@
+METRIC|script=incident_preflight|status=success|exit_code=0|duration_s=4
+METRIC|script=incident_preflight|status=success|exit_code=0|duration_s=3
+METRIC|script=incident_preflight|status=failure|exit_code=1|duration_s=12
+METRIC|script=port_auth_smoke_test|status=success|exit_code=0|duration_s=2
+METRIC|script=port_auth_smoke_test|status=success|exit_code=0|duration_s=3
+METRIC|script=remote_dns_tls_check|status=success|exit_code=0|duration_s=8
+METRIC|script=remote_disk_pressure_scan|status=success|exit_code=0|duration_s=6
+METRIC|script=jcasc_render_precheck|status=failure|exit_code=1|duration_s=5
+METRIC|script=jcasc_render_precheck|status=success|exit_code=0|duration_s=7
+METRIC|script=tiller_render_diff|status=success|exit_code=0|duration_s=15

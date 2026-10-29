@@ -1,0 +1,25 @@
+{
+  "session_name": "${PS_SESSION_NAME:-fw-host-probe}",
+  "window_name": "fw-probe",
+  "sync_panes": false,
+  "session_width": 320,
+  "session_height": 90,
+  "panes": [
+    {
+      "title": "host-01",
+      "command": "scp scripts/fw-host-probe-check.sh ${SSH_USER}@${PS_HOST_01}:/tmp/ && scp third_party/checkfirewall-image-1.4.13/observed-host-probes.txt ${SSH_USER}@${PS_HOST_01}:/tmp/fw-observed-host-probes.txt && ssh ${SSH_USER}@${PS_HOST_01} 'HOSTS_FILE=/tmp/fw-observed-host-probes.txt bash /tmp/fw-host-probe-check.sh'"
+    },
+    {
+      "title": "host-02",
+      "command": "scp scripts/fw-host-probe-check.sh ${SSH_USER}@${PS_HOST_02}:/tmp/ && scp third_party/checkfirewall-image-1.4.13/observed-host-probes.txt ${SSH_USER}@${PS_HOST_02}:/tmp/fw-observed-host-probes.txt && ssh ${SSH_USER}@${PS_HOST_02} 'HOSTS_FILE=/tmp/fw-observed-host-probes.txt bash /tmp/fw-host-probe-check.sh'"
+    },
+    {
+      "title": "host-03",
+      "command": "scp scripts/fw-host-probe-check.sh ${SSH_USER}@${PS_HOST_03}:/tmp/ && scp third_party/checkfirewall-image-1.4.13/observed-host-probes.txt ${SSH_USER}@${PS_HOST_03}:/tmp/fw-observed-host-probes.txt && ssh ${SSH_USER}@${PS_HOST_03} 'HOSTS_FILE=/tmp/fw-observed-host-probes.txt bash /tmp/fw-host-probe-check.sh'"
+    },
+    {
+      "title": "host-04",
+      "command": "scp scripts/fw-host-probe-check.sh ${SSH_USER}@${PS_HOST_04}:/tmp/ && scp third_party/checkfirewall-image-1.4.13/observed-host-probes.txt ${SSH_USER}@${PS_HOST_04}:/tmp/fw-observed-host-probes.txt && ssh ${SSH_USER}@${PS_HOST_04} 'HOSTS_FILE=/tmp/fw-observed-host-probes.txt bash /tmp/fw-host-probe-check.sh'"
+    }
+  ]
+}

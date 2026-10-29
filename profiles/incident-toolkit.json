@@ -1,0 +1,53 @@
+{
+  "session_name": "${PS_SESSION_NAME:-prod-support}-toolkit",
+  "window_name": "toolkit",
+  "session_width": 320,
+  "session_height": 90,
+  "panes": [
+    {
+      "title": "Preflight",
+      "command": "bash -lc 'source .env 2>/dev/null || true; bash scripts/incident_preflight.sh'",
+      "cwd": "."
+    },
+    {
+      "title": "Docker Snapshot",
+      "command": "bash -lc 'source .env 2>/dev/null || true; bash scripts/remote_docker_snapshot.sh'",
+      "cwd": "."
+    },
+    {
+      "title": "DNS TLS",
+      "command": "bash -lc 'source .env 2>/dev/null || true; bash scripts/remote_dns_tls_check.sh ${PS_DIAGNOSTIC_ENDPOINT:-api.port.io}'",
+      "cwd": "."
+    },
+    {
+      "title": "Disk Pressure",
+      "command": "bash -lc 'source .env 2>/dev/null || true; bash scripts/remote_disk_pressure_scan.sh'",
+      "cwd": "."
+    },
+    {
+      "title": "Art Repl Audit",
+      "command": "bash -lc 'source .env 2>/dev/null || true; if [[ -n \"${ART_BASE_URL:-}\" && ( -n \"${ART_TOKEN:-}\" || ( -n \"${ART_USERNAME:-}\" && -n \"${ART_PASSWORD:-}\" ) ) ]]; then bash scripts/artifactory-replication-audit.sh; else echo \"Set ART_BASE_URL and ART_TOKEN (or ART_USERNAME/ART_PASSWORD) to run replication audit.\"; fi'",
+      "cwd": "."
+    },
+    {
+      "title": "Art Pkg Check",
+      "command": "bash -lc 'source .env 2>/dev/null || true; if [[ -n \"${ART_BASE_URL:-}\" && ( -n \"${ART_TOKEN:-}\" || ( -n \"${ART_USERNAME:-}\" && -n \"${ART_PASSWORD:-}\" ) ) ]]; then bash scripts/artifactory-package-resolution-check.sh ${ART_REPO_KEYS:-}; else echo \"Set ART_BASE_URL and ART_TOKEN (or ART_USERNAME/ART_PASSWORD), plus ART_REPO_KEYS if needed, to run package resolution checks.\"; fi'",
+      "cwd": "."
+    },
+    {
+      "title": "Art 502 Triage",
+      "command": "bash -lc 'source .env 2>/dev/null || true; if [[ -n \"${ART_BASE_URL:-}\" ]]; then bash scripts/artifactory-502-triage.sh; else echo \"Set ART_BASE_URL to run 502 triage.\"; fi'",
+      "cwd": "."
+    },
+    {
+      "title": "Art Repo Map",
+      "command": "bash -lc 'source .env 2>/dev/null || true; REPO_CONFIG_DIR=${ART_REPO_CONFIG_DIR:-./clusters/artifactory-ha-base/config-repos} bash scripts/artifactory-repo-map-check.sh || true'",
+      "cwd": "."
+    },
+    {
+      "title": "Art Log Scope",
+      "command": "bash -lc 'source .env 2>/dev/null || true; if [[ -n \"${ART_LOG_SCOPE_INPUT:-}\" ]]; then bash scripts/artifactory-log-scope.sh --mode summary ${ART_LOG_SCOPE_INPUT}; else echo \"Set ART_LOG_SCOPE_INPUT to one or more request log files to run scope analysis.\"; bash scripts/artifactory-log-scope.sh --help | sed -n \"1,12p\"; fi'",
+      "cwd": "."
+    }
+  ]
+}
