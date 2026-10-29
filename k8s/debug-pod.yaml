@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: production-debug
+  namespace: debug-system
+  labels:
+    app.kubernetes.io/name: production-debug
+    app.kubernetes.io/part-of: production-debug-toolkit
+    app.kubernetes.io/component: incident-triage
+    azure.workload.identity/use: "true"
+spec:
+  serviceAccountName: prod-debug-sa
+  restartPolicy: Never
+  # Schedule on control-plane or tainted nodes during severe node pressure incidents
+  tolerations:
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 6000
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 6000
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: debugger
+      image: ghcr.io/manujacks/production-debug:latest
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/bash", "-c", "sleep infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+        capabilities:
+          drop:
+            - ALL
+          add:
+            # Add capabilities essential for network packet inspection and socket tracing
+            - NET_ADMIN
+            - NET_RAW
+            - SYS_PTRACE
+      resources:
+        limits:
+          cpu: "2"
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      volumeMounts:
+        - name: incident-output
+          mountPath: /tmp/incident-bundle
+  volumes:
+    - name: incident-output
+      emptyDir: {}
