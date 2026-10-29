@@ -34,6 +34,7 @@ tmux new-session -d -s "$SESSION_NAME" -n "triage" \
      fi; exec bash'
 
 # 2. Split horizontally for Pane 2 (Top-Right): Network Probes
+# shellcheck disable=SC2016
 tmux split-window -h -t "${SESSION_NAME}:0" \
     'echo "=== [PANE 2] Continuous Network & DNS Health Monitor ==="; \
      TARGET="${PROBE_TARGET:-1.1.1.1}"; \
@@ -46,6 +47,7 @@ tmux split-window -h -t "${SESSION_NAME}:0" \
 
 # 3. Split bottom from Pane 1 (Bottom-Left): Azure & Identity Audit
 tmux select-pane -t "${SESSION_NAME}:0.0"
+# shellcheck disable=SC2016
 tmux split-window -v -t "${SESSION_NAME}:0.0" \
     'echo "=== [PANE 3] Azure Workload Identity / IMDS Audit ==="; \
      if [ -n "${AZURE_CLIENT_ID:-}" ]; then \
