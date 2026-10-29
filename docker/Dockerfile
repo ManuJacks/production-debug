@@ -52,6 +52,37 @@ RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --d
 # Install Helm
 RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+# Install Staff SRE K8s Diagnostic Suite: K9s, Stern, kubectx/kubens, kubectl-neat, kubectl-tree
+ARG K9S_VER="v0.32.7"
+ARG STERN_VER="1.31.0"
+ARG KUBECTX_VER="v0.9.5"
+ARG NEAT_VER="v2.0.4"
+ARG TREE_VER="v0.4.3"
+
+RUN set -eux; \
+    ARCH=$(dpkg --print-architecture); \
+    case "$ARCH" in \
+      amd64) KUBECTX_ARCH="x86_64";; \
+      arm64) KUBECTX_ARCH="arm64";; \
+      *) KUBECTX_ARCH="$ARCH";; \
+    esac; \
+    # 1. K9s
+    curl -fsSL "https://github.com/derailed/k9s/releases/download/${K9S_VER}/k9s_Linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin k9s; \
+    chmod +x /usr/local/bin/k9s; \
+    # 2. Stern
+    curl -fsSL "https://github.com/stern/stern/releases/download/v${STERN_VER}/stern_${STERN_VER}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin stern; \
+    chmod +x /usr/local/bin/stern; \
+    # 3. kubectx & kubens
+    curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/${KUBECTX_VER}/kubectx_${KUBECTX_VER}_linux_${KUBECTX_ARCH}.tar.gz" | tar -xz -C /usr/local/bin kubectx; \
+    curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/${KUBECTX_VER}/kubens_${KUBECTX_VER}_linux_${KUBECTX_ARCH}.tar.gz" | tar -xz -C /usr/local/bin kubens; \
+    chmod +x /usr/local/bin/kubectx /usr/local/bin/kubens; \
+    # 4. kubectl-neat
+    curl -fsSL "https://github.com/itaysk/kubectl-neat/releases/download/${NEAT_VER}/kubectl-neat_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin kubectl-neat; \
+    chmod +x /usr/local/bin/kubectl-neat; \
+    # 5. kubectl-tree
+    curl -fsSL "https://github.com/ahmetb/kubectl-tree/releases/download/${TREE_VER}/kubectl-tree_${TREE_VER}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin kubectl-tree; \
+    chmod +x /usr/local/bin/kubectl-tree
+
 # Install Azure CLI
 RUN mkdir -p /etc/apt/keyrings && \
     curl -sLS https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg && \

@@ -112,6 +112,19 @@ Validate that network security rules and egress routes allow critical diagnostic
 ./scripts/nsg-egress-validate.sh
 ```
 
+### 3. Local Practice Sandbox via Multipass VM
+
+Want to practice incident drills on a live VM without touching real production? Launch the local Multipass sandbox:
+
+```bash
+# Provision isolated VM, sync diagnostic tools, and launch practice environment
+bash dev-lab/run-multipass.sh
+```
+
+Follow the hands-on practice walkthrough in [dev-lab/MULTIPASS_PRACTICE_GUIDE.md](dev-lab/MULTIPASS_PRACTICE_GUIDE.md) to practice 4-pane tmux triage, K9s navigation, Stern log streaming, and secret-sanitized incident bundling.
+
+---
+
 ### Automated Sanitized Incident Evidence Bundling
 When an incident concludes, assemble an audit-ready artifact packager with automatic secret redaction:
 ```bash
