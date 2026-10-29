@@ -99,9 +99,17 @@ def test_kpi_report_json(tmp_path: Path) -> None:
 def test_kpi_compare_reports_delta(tmp_path: Path) -> None:
     base_log = tmp_path / "base.log"
     curr_log = tmp_path / "curr.log"
-    base_log.write_text("METRIC|script=a|status=success|exit_code=0|duration_s=10|hosts=1|failures=0\n", encoding="utf-8")
-    curr_log.write_text("METRIC|script=a|status=success|exit_code=0|duration_s=5|hosts=1|failures=0\n", encoding="utf-8")
-    completed = run_script("kpi_compare.sh", str(base_log), str(curr_log), "--format", "json")
+    base_log.write_text(
+        "METRIC|script=a|status=success|exit_code=0|duration_s=10|hosts=1|failures=0\n",
+        encoding="utf-8",
+    )
+    curr_log.write_text(
+        "METRIC|script=a|status=success|exit_code=0|duration_s=5|hosts=1|failures=0\n",
+        encoding="utf-8",
+    )
+    completed = run_script(
+        "kpi_compare.sh", str(base_log), str(curr_log), "--format", "json"
+    )
     assert completed.returncode == 0
     payload = json.loads(completed.stdout)
     assert "delta" in payload
@@ -112,14 +120,18 @@ def test_incident_bundle_creates_bundle_and_archive(tmp_path: Path) -> None:
     out_dir = tmp_path / "bundle_out"
     sample_artifact = tmp_path / "diag.log"
     sample_artifact.write_text("sample triage output\n", encoding="utf-8")
-    completed = run_script("incident_bundle.sh", str(out_dir), str(sample_artifact), "--name", "test-inc")
+    completed = run_script(
+        "incident_bundle.sh", str(out_dir), str(sample_artifact), "--name", "test-inc"
+    )
     assert completed.returncode == 0
     archives = list(out_dir.glob("test-inc-*.tar.gz"))
     assert len(archives) == 1
 
 
 def test_fw_host_probe_requires_valid_hosts_file() -> None:
-    completed = run_script("fw-host-probe-check.sh", "--hosts-file", "/nonexistent/hosts.txt")
+    completed = run_script(
+        "fw-host-probe-check.sh", "--hosts-file", "/nonexistent/hosts.txt"
+    )
     assert completed.returncode == 1
     assert "host list file not found" in completed.stderr
 

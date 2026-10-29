@@ -2,6 +2,7 @@
 Model Context Protocol (MCP) server for production-debug diagnostics.
 Exposes sandboxed, read-only SRE diagnostic tools via standard JSON-RPC.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,6 +14,7 @@ from typing import Any, Dict
 
 try:
     from fastmcp import FastMCP
+
     mcp = FastMCP("production-debug-mcp")
 except ImportError:
     mcp = None
@@ -53,7 +55,9 @@ def check_azure_workload_identity_impl() -> Dict[str, Any]:
     client_id = os.environ.get("AZURE_CLIENT_ID")
     tenant_id = os.environ.get("AZURE_TENANT_ID")
     token_file = os.environ.get("AZURE_FEDERATED_TOKEN_FILE")
-    authority = os.environ.get("AZURE_AUTHORITY_HOST", "https://login.microsoftonline.com/")
+    authority = os.environ.get(
+        "AZURE_AUTHORITY_HOST", "https://login.microsoftonline.com/"
+    )
 
     report: Dict[str, Any] = {
         "azure_workload_identity": {
@@ -65,13 +69,21 @@ def check_azure_workload_identity_impl() -> Dict[str, Any]:
         },
         "imds_probe": {
             "reachable": False,
-        }
+        },
     }
 
     # Non-destructive curl to IMDS
     if shutil.which("curl"):
         try:
-            imds_cmd = ["curl", "-s", "-m", "2", "-H", "Metadata:true", "http://169.254.169.254/metadata/instance?api-version=2021-02-01"]
+            imds_cmd = [
+                "curl",
+                "-s",
+                "-m",
+                "2",
+                "-H",
+                "Metadata:true",
+                "http://169.254.169.254/metadata/instance?api-version=2021-02-01",
+            ]
             proc = subprocess.run(imds_cmd, capture_output=True, text=True, timeout=3)
             if proc.returncode == 0 and proc.stdout:
                 try:
@@ -85,21 +97,28 @@ def check_azure_workload_identity_impl() -> Dict[str, Any]:
                         "osType": compute.get("osType"),
                     }
                 except json.JSONDecodeError:
-                    report["imds_probe"] = {"reachable": True, "raw_response_received": True}
+                    report["imds_probe"] = {
+                        "reachable": True,
+                        "raw_response_received": True,
+                    }
         except Exception:
             pass
 
     return report
 
 
-def capture_network_trace_summary_impl(interface: str = "eth0", duration_sec: int = 5) -> Dict[str, Any]:
+def capture_network_trace_summary_impl(
+    interface: str = "eth0", duration_sec: int = 5
+) -> Dict[str, Any]:
     """Collect a brief packet summary trace using tcpdump."""
     if not SAFE_IFACE_REGEX.match(interface):
         return {"error": "Invalid network interface format"}
 
     duration = max(1, min(int(duration_sec), 30))
     if not shutil.which("tcpdump"):
-        return {"error": "tcpdump not found in PATH or insufficient capabilities (NET_ADMIN/NET_RAW required)"}
+        return {
+            "error": "tcpdump not found in PATH or insufficient capabilities (NET_ADMIN/NET_RAW required)"
+        }
 
     cmd = ["tcpdump", "-i", interface, "-c", "25", "-nn", "-q"]
     try:
@@ -122,7 +141,9 @@ def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> Dict[str, An
     script_path = "/usr/local/bin/incident_bundle.sh"
     if not os.path.exists(script_path):
         # Fallback to local repo location
-        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts/incident_bundle.sh"))
+        script_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../scripts/incident_bundle.sh")
+        )
 
     if not os.path.exists(script_path):
         return {"error": f"incident_bundle.sh not found at {script_path}"}
@@ -130,7 +151,12 @@ def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> Dict[str, An
     try:
         out_dir = "/tmp/incident-bundle"
         os.makedirs(out_dir, exist_ok=True)
-        proc = subprocess.run([script_path, incident_id, out_dir], capture_output=True, text=True, timeout=30)
+        proc = subprocess.run(
+            [script_path, incident_id, out_dir],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
         return {
             "status": "success" if proc.returncode == 0 else "failed",
             "returncode": proc.returncode,
@@ -142,6 +168,7 @@ def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> Dict[str, An
 
 
 if mcp:
+
     @mcp.tool()
     def run_dns_probe(domain: str, nameserver: str | None = None) -> Dict[str, Any]:
         """Diagnose DNS resolution, query latency, and record availability."""
@@ -153,7 +180,9 @@ if mcp:
         return check_azure_workload_identity_impl()
 
     @mcp.tool()
-    def capture_network_trace_summary(interface: str = "eth0", duration_sec: int = 5) -> Dict[str, Any]:
+    def capture_network_trace_summary(
+        interface: str = "eth0", duration_sec: int = 5
+    ) -> Dict[str, Any]:
         """Collect packet sample and network trace statistics."""
         return capture_network_trace_summary_impl(interface, duration_sec)
 
@@ -169,7 +198,13 @@ def main():
     else:
         # Fallback JSON-RPC stdio loop if fastmcp is not installed
         import sys
-        print(json.dumps({"status": "ready", "server": "production-debug-mcp-standalone"}), flush=True)
+
+        print(
+            json.dumps(
+                {"status": "ready", "server": "production-debug-mcp-standalone"}
+            ),
+            flush=True,
+        )
         for line in sys.stdin:
             try:
                 req = json.loads(line)
@@ -188,7 +223,10 @@ def main():
                 else:
                     res = {"error": f"Unknown method {method}"}
 
-                print(json.dumps({"jsonrpc": "2.0", "id": req_id, "result": res}), flush=True)
+                print(
+                    json.dumps({"jsonrpc": "2.0", "id": req_id, "result": res}),
+                    flush=True,
+                )
             except Exception as e:
                 print(json.dumps({"jsonrpc": "2.0", "error": str(e)}), flush=True)
 
