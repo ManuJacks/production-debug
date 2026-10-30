@@ -43,11 +43,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# Install modern kubectl (latest stable v1.31)
-RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && \
-    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' > /etc/apt/sources.list.d/kubernetes.list && \
-    apt-get update && apt-get install -y --no-install-recommends kubectl && \
-    rm -rf /var/lib/apt/lists/*
+# Install modern kubectl (pinned v1.31.2 with multi-arch sha256 verification)
+ARG KUBECTL_VER="v1.31.2"
+RUN set -eux; \
+    ARCH=$(dpkg --print-architecture); \
+    curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VER}/bin/linux/${ARCH}/kubectl" -o /usr/local/bin/kubectl; \
+    curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VER}/bin/linux/${ARCH}/kubectl.sha256" -o /tmp/kubectl.sha256; \
+    echo "$(cat /tmp/kubectl.sha256)  /usr/local/bin/kubectl" | sha256sum --check; \
+    rm -f /tmp/kubectl.sha256; \
+    chmod +x /usr/local/bin/kubectl
 
 # Install Helm
 RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
@@ -88,7 +92,8 @@ RUN mkdir -p /etc/apt/keyrings && \
     curl -sLS https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg && \
     chmod go+r /etc/apt/keyrings/microsoft.gpg && \
     AZ_DIST=$(lsb_release -cs) && \
-    echo "deb [arch=amd64,arm64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $AZ_DIST main" > /etc/apt/sources.list.d/azure-cli.list && \
+    ARCH=$(dpkg --print-architecture) && \
+    echo "deb [arch=${ARCH} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ ${AZ_DIST} main" > /etc/apt/sources.list.d/azure-cli.list && \
     apt-get update && apt-get install -y --no-install-recommends azure-cli && \
     rm -rf /var/lib/apt/lists/*
 
