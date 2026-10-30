@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: networkpolicy-demo}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: networkpolicy-demo}}
+  template:
+    metadata: {labels: {app: networkpolicy-demo}}
+    spec: {containers: [{name: app, image: nginx:1.27}]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: deny-all-demo}
+spec: {podSelector: {}, policyTypes: [Ingress, Egress]}

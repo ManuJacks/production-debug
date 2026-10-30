@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: pending-demo}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: pending-demo}}
+  template:
+    metadata: {labels: {app: pending-demo}}
+    spec:
+      nodeSelector: {synthetic-lab-node: does-not-exist}
+      containers: [{name: app, image: busybox:1.36, resources: {requests: {cpu: "1000"}}}]

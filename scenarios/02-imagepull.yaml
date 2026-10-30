@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: imagepull-demo}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: imagepull-demo}}
+  template:
+    metadata: {labels: {app: imagepull-demo}}
+    spec:
+      containers: [{name: app, image: registry.example.test/synthetic/not-found:v999}]
