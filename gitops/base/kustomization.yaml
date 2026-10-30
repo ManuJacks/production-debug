@@ -5,3 +5,9 @@ namespace: debug-system
 
 resources:
   - rbac.yaml
+  - debug-pod.yaml
+  - network-policy.yaml
+
+images:
+  - name: ghcr.io/manujacks/production-debug
+    newTag: 0.1.0

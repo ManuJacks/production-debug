@@ -7,6 +7,7 @@ Use this checklist to run repeatable quarterly incident exercises and prove that
 - Rehearse the shared tmux incident workflow under stress-like conditions.
 - Validate that key runbooks and support scripts still work end to end.
 - Capture measurable before/after evidence for operational outcomes.
+- Practice blameless firefighting, explicit stop conditions, and responder handoffs.
 
 ## Cadence and ownership
 
@@ -52,6 +53,8 @@ Pick one scenario each quarter and rotate coverage.
 - Assign roles: commander, driver, navigator, scribe.
 - Start a shared tmux incident session.
 - Confirm all participants can attach and observe commands.
+- State that the exercise is a learning activity; do not evaluate individual performance.
+- Confirm the incident commander may pause the exercise at any time for safety.
 
 ### B. Runbook validation (15 to 25 minutes)
 
@@ -75,6 +78,7 @@ Pick one scenario each quarter and rotate coverage.
 - Perform one handoff simulation to another responder.
 - Confirm new responder can continue without private context.
 - Record blockers to follow-the-sun continuity.
+- Record system and process contributors, not individual fault.
 
 ## Exit criteria
 

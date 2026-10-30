@@ -2,6 +2,8 @@
 
 This document provides detailed instructions and architectural context for the core components implemented in **`production-debug`**.
 
+For live incident operation, read [Operating Model](OPERATING_MODEL.md) first. It defines the firefighting roles, handoff minimum, stop conditions, evidence handling, and blameless review expectations.
+
 ---
 
 ## 📑 Contents

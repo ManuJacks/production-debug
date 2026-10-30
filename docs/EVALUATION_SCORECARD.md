@@ -1,11 +1,12 @@
 # Production Debug Toolkit & Incident Platform Evaluation (13/13 Rubric)
 
 - Evaluation Date: 2026-10-29
-- Target Standard: Staff / Principal SRE & Platform Engineering (13/13 Criteria)
+- Target Standard: Staff / Principal SRE & Platform Engineering (13 criteria)
+- Status: working baseline; claims must be verified by CI and live-lab evidence before being marked complete.
 
 | # | Dimension | Status | Concrete Implementation & Verifiable Artifacts |
 |---|---|---|---|
-| **1** | **Safe-by-Default Architecture** | **PASS** | [`docs/adr/001-safe-by-default-execution.md`](file:///home/robert/Code/production-debug/docs/adr/001-safe-by-default-execution.md): Read-only by default, explicit opt-in for mutation, no implicit side-effects. |
+| **1** | **Safe-by-Default Architecture** | **Implemented** | [`docs/adr/001-safe-by-default-execution.md`](adr/001-safe-by-default-execution.md): Read-only by default, explicit opt-in for mutation, no implicit side-effects. |
 | **2** | **Zero-SSH / Modern Ephemeral Access** | **PASS** | [`docs/adr/004-production-access-no-ssh-by-default.md`](file:///home/robert/Code/production-debug/docs/adr/004-production-access-no-ssh-by-default.md), `kubectl debug` container injection, and standalone ephemeral pod specs. |
 | **3** | **GitOps & Continuous Drift Reconciliation** | **PASS** | [`docs/adr/006-gitops-flux-debug-infrastructure.md`](file:///home/robert/Code/production-debug/docs/adr/006-gitops-flux-debug-infrastructure.md), Flux v2 Kustomization, automated RBAC pruning in `debug-system` namespace. |
 | **4** | **Structured Telemetry & KPI Contract** | **PASS** | [`docs/adr/002-telemetry-format-and-kpi-contract.md`](file:///home/robert/Code/production-debug/docs/adr/002-telemetry-format-and-kpi-contract.md), canonical `METRIC\|...` line output contract, [`scripts/kpi_collect.sh`](file:///home/robert/Code/production-debug/scripts/kpi_collect.sh), [`telemetry/sample.log`](file:///home/robert/Code/production-debug/telemetry/sample.log). |

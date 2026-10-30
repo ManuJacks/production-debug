@@ -6,7 +6,7 @@
 [![Kubernetes](https://img.shields.io/badge/kubernetes-ephemeral%20debug-326CE5.svg?logo=kubernetes&logoColor=white)](k8s/)
 [![Azure Verified](https://img.shields.io/badge/azure-workload%20identity-0078D4.svg?logo=microsoftazure&logoColor=white)](scripts/)
 
-> **High-signal, least-privilege Kubernetes & Azure incident diagnostics toolkit engineered to Staff/Principal SRE standards.**
+> **Least-privilege Kubernetes & Azure incident diagnostics toolkit for safe, fast, evidence-driven firefighting.**
 
 📖 **New to the project or looking for deep-dive instructions?** Read the [**Detailed Implementation Guide & Architecture Deep-Dive**](docs/IMPLEMENTATION_GUIDE.md) for full walkthroughs on the container design, 4-pane tmux triage, scoped RBAC, MCP AI diagnostic server, and eBPF/Cilium dev-lab.
 
@@ -27,6 +27,21 @@ Responders often encounter:
 2. **Least-Privilege RBAC**: Explicit read-only ClusterRoles and scoped ServiceAccounts for debugging pods.
 3. **Automated Evidence Bundling**: One-touch sanitized triage bundle creation with regex secret redaction and SHA256 integrity checksums.
 4. **Cloud-Native & VM Portability**: Runs seamlessly as an ephemeral Kubernetes pod, via GitOps (Flux v2), or on Linux VMs via Podman/Docker.
+
+## Firefighting and blameless operations
+
+This project is designed for the first minutes of a live incident: establish shared visibility, reduce uncertainty, protect evidence, and restore service safely. It supports incident command, a driver/navigator/scribe split, explicit stop conditions, and handoffs that do not depend on private context.
+
+The operating model is blameless. We investigate systems, controls, and contributing conditions rather than individual fault. A post-incident review should ask what made the failure possible, what signals were missing, and how the system can make the safe action easier next time. Evidence is collected to improve reliability and learning—not to assign blame.
+
+During firefighting:
+
+- Stabilize customer impact before optimizing the diagnosis.
+- Prefer reversible, observable actions and record the decision context.
+- State uncertainty explicitly and keep a hypothesis log.
+- Preserve logs and artifacts before cleanup or restart actions.
+- Rotate roles and provide a clean handoff for follow-the-sun support.
+- Schedule follow-up work for systemic fixes instead of relying on heroics.
 
 ---
 

@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: production-debug
+  labels:
+    app.kubernetes.io/name: production-debug
+    app.kubernetes.io/component: incident-triage
+spec:
+  serviceAccountName: prod-debug-sa
+  automountServiceAccountToken: true
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: debugger
+      image: ghcr.io/manujacks/production-debug:0.1.0
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/bash", "-c", "sleep infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 1
+          memory: 1Gi
+      volumeMounts:
+        - name: incident-output
+          mountPath: /tmp/incident-bundle
+        - name: tmp
+          mountPath: /tmp
+  volumes:
+    - name: incident-output
+      emptyDir: {}
+    - name: tmp
+      emptyDir: {}

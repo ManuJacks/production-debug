@@ -10,6 +10,7 @@ metadata:
     azure.workload.identity/use: "true"
 spec:
   serviceAccountName: prod-debug-sa
+  automountServiceAccountToken: true
   restartPolicy: Never
   # Schedule on control-plane or tainted nodes during severe node pressure incidents
   tolerations:
@@ -33,7 +34,7 @@ spec:
       type: RuntimeDefault
   containers:
     - name: debugger
-      image: ghcr.io/manujacks/production-debug:latest
+      image: ghcr.io/manujacks/production-debug:0.1.0
       imagePullPolicy: IfNotPresent
       command: ["/bin/bash", "-c", "sleep infinity"]
       securityContext:
