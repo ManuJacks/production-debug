@@ -10,7 +10,7 @@ import os
 import re
 import shutil
 import subprocess
-from typing import Any, Dict
+from typing import Any
 
 try:
     from fastmcp import FastMCP
@@ -24,7 +24,7 @@ SAFE_DOMAIN_REGEX = re.compile(r"^[a-zA-Z0-9.-]{1,253}$")
 SAFE_IFACE_REGEX = re.compile(r"^[a-zA-Z0-9._-]{1,16}$")
 
 
-def run_dns_probe_impl(domain: str, nameserver: str | None = None) -> Dict[str, Any]:
+def run_dns_probe_impl(domain: str, nameserver: str | None = None) -> dict[str, Any]:
     """Diagnose DNS resolution, query latency, and record availability."""
     if not SAFE_DOMAIN_REGEX.match(domain):
         return {"error": "Invalid domain name format"}
@@ -39,18 +39,20 @@ def run_dns_probe_impl(domain: str, nameserver: str | None = None) -> Dict[str, 
         return {"error": "dig executable not found in PATH"}
 
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        proc = subprocess.run(
+            cmd, check=False, capture_output=True, text=True, timeout=10
+        )
         return {
             "status": "success" if proc.returncode == 0 else "failed",
             "returncode": proc.returncode,
             "stdout": proc.stdout,
             "stderr": proc.stderr,
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, OSError) as exc:
         return {"status": "error", "message": str(exc)}
 
 
-def check_azure_workload_identity_impl() -> Dict[str, Any]:
+def check_azure_workload_identity_impl() -> dict[str, Any]:
     """Audit Azure Workload Identity / IMDS environment without leaking secrets."""
     client_id = os.environ.get("AZURE_CLIENT_ID")
     tenant_id = os.environ.get("AZURE_TENANT_ID")
@@ -59,7 +61,7 @@ def check_azure_workload_identity_impl() -> Dict[str, Any]:
         "AZURE_AUTHORITY_HOST", "https://login.microsoftonline.com/"
     )
 
-    report: Dict[str, Any] = {
+    report: dict[str, Any] = {
         "azure_workload_identity": {
             "configured": bool(client_id and tenant_id and token_file),
             "client_id_present": bool(client_id),
@@ -84,7 +86,9 @@ def check_azure_workload_identity_impl() -> Dict[str, Any]:
                 "Metadata:true",
                 "http://169.254.169.254/metadata/instance?api-version=2021-02-01",
             ]
-            proc = subprocess.run(imds_cmd, capture_output=True, text=True, timeout=3)
+            proc = subprocess.run(
+                imds_cmd, check=False, capture_output=True, text=True, timeout=3
+            )
             if proc.returncode == 0 and proc.stdout:
                 try:
                     data = json.loads(proc.stdout)
@@ -101,15 +105,15 @@ def check_azure_workload_identity_impl() -> Dict[str, Any]:
                         "reachable": True,
                         "raw_response_received": True,
                     }
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError):
+            report["imds_probe"] = {"reachable": False}
 
     return report
 
 
 def capture_network_trace_summary_impl(
     interface: str = "eth0", duration_sec: int = 5
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Collect a brief packet summary trace using tcpdump."""
     if not SAFE_IFACE_REGEX.match(interface):
         return {"error": "Invalid network interface format"}
@@ -122,7 +126,9 @@ def capture_network_trace_summary_impl(
 
     cmd = ["tcpdump", "-i", interface, "-c", "25", "-nn", "-q"]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=duration + 2)
+        proc = subprocess.run(
+            cmd, check=False, capture_output=True, text=True, timeout=duration + 2
+        )
         return {
             "status": "success",
             "interface": interface,
@@ -132,11 +138,11 @@ def capture_network_trace_summary_impl(
         }
     except subprocess.TimeoutExpired:
         return {"status": "timeout", "interface": interface}
-    except Exception as exc:
+    except (subprocess.SubprocessError, OSError) as exc:
         return {"status": "error", "message": str(exc)}
 
 
-def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> Dict[str, Any]:
+def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> dict[str, Any]:
     """Generate a sanitized incident triage bundle with SHA-256 fingerprint."""
     script_path = "/usr/local/bin/incident_bundle.sh"
     if not os.path.exists(script_path):
@@ -153,6 +159,7 @@ def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> Dict[str, An
         os.makedirs(out_dir, exist_ok=True)
         proc = subprocess.run(
             [script_path, incident_id, out_dir],
+            check=False,
             capture_output=True,
             text=True,
             timeout=30,
@@ -163,31 +170,31 @@ def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> Dict[str, An
             "stdout": proc.stdout,
             "bundle_dir": out_dir,
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, OSError) as exc:
         return {"status": "error", "message": str(exc)}
 
 
 if mcp:
 
     @mcp.tool()
-    def run_dns_probe(domain: str, nameserver: str | None = None) -> Dict[str, Any]:
+    def run_dns_probe(domain: str, nameserver: str | None = None) -> dict[str, Any]:
         """Diagnose DNS resolution, query latency, and record availability."""
         return run_dns_probe_impl(domain, nameserver)
 
     @mcp.tool()
-    def check_azure_workload_identity() -> Dict[str, Any]:
+    def check_azure_workload_identity() -> dict[str, Any]:
         """Audit Azure Workload Identity and IMDS reachability."""
         return check_azure_workload_identity_impl()
 
     @mcp.tool()
     def capture_network_trace_summary(
         interface: str = "eth0", duration_sec: int = 5
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Collect packet sample and network trace statistics."""
         return capture_network_trace_summary_impl(interface, duration_sec)
 
     @mcp.tool()
-    def generate_incident_bundle(incident_id: str = "INCIDENT") -> Dict[str, Any]:
+    def generate_incident_bundle(incident_id: str = "INCIDENT") -> dict[str, Any]:
         """Generate a sanitized, redacted incident archive."""
         return generate_incident_bundle_impl(incident_id)
 
@@ -227,7 +234,7 @@ def main():
                     json.dumps({"jsonrpc": "2.0", "id": req_id, "result": res}),
                     flush=True,
                 )
-            except Exception as e:
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
                 print(json.dumps({"jsonrpc": "2.0", "error": str(e)}), flush=True)
 
 
