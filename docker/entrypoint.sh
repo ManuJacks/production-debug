@@ -19,7 +19,7 @@ echo "--------------------------------------------------------------------------
 
 # Quick environment discovery
 if [ -n "${AZURE_CLIENT_ID:-}" ]; then
-    echo "✓ Azure Workload Identity Active (Client ID: ${AZURE_CLIENT_ID})"
+    echo "ℹ Azure Workload Identity configuration detected (Client ID: ${AZURE_CLIENT_ID})"
 elif curl -s -m 1 -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2021-02-01" >/dev/null 2>&1; then
     echo "✓ Azure IMDS Reachable (Virtual Machine / AKS Node)"
 else
