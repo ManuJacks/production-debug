@@ -1,7 +1,13 @@
 FROM debian:bookworm-slim
 
-LABEL maintainer="ManuJacks <https://github.com/ManuJacks/production-debug>" \
-      description="Production K8s & Azure Incident Diagnostic Toolkit" \
+LABEL org.opencontainers.image.title="production-debug" \
+      org.opencontainers.image.description="Ephemeral, safe-by-default Kubernetes and Linux triage container for production incident diagnostics." \
+      org.opencontainers.image.source="https://github.com/ManuJacks/production-debug" \
+      org.opencontainers.image.documentation="https://github.com/ManuJacks/production-debug/blob/main/README.md" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="ManuJacks" \
+      org.opencontainers.image.authors="ManuJacks" \
+      maintainer="ManuJacks <https://github.com/ManuJacks/production-debug>" \
       security.standards="Staff/Principal SRE - Least-Privilege & Read-Only Diagnostics"
 
 ENV DEBIAN_FRONTEND=noninteractive \
