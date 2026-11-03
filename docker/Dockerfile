@@ -53,8 +53,16 @@ RUN set -eux; \
     rm -f /tmp/kubectl.sha256; \
     chmod +x /usr/local/bin/kubectl
 
-# Install Helm
-RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+# Install Helm (pinned release with SHA-256 verification)
+ARG HELM_VER="v3.17.3"
+RUN set -eux; \
+    ARCH=$(dpkg --print-architecture); \
+    HELM_FILE="helm-${HELM_VER}-linux-${ARCH}.tar.gz"; \
+    curl -fsSL "https://get.helm.sh/${HELM_FILE}" -o "/tmp/${HELM_FILE}"; \
+    curl -fsSL "https://get.helm.sh/${HELM_FILE}.sha256sum" -o /tmp/helm.sha256sum; \
+    echo "$(awk '{print $1}' /tmp/helm.sha256sum)  /tmp/${HELM_FILE}" | sha256sum --check; \
+    tar -xz --strip-components=1 -C /usr/local/bin -f "/tmp/${HELM_FILE}" "linux-${ARCH}/helm"; \
+    rm -f "/tmp/${HELM_FILE}" /tmp/helm.sha256sum
 
 # Install Staff SRE K8s Diagnostic Suite: K9s, Stern, kubectx/kubens, kubectl-neat, kubectl-tree
 ARG K9S_VER="v0.32.7"
@@ -101,7 +109,7 @@ RUN mkdir -p /etc/apt/keyrings && \
 WORKDIR /app
 COPY mcp/ /app/mcp/
 RUN python3 -m venv /opt/mcp-venv && \
-    /opt/mcp-venv/bin/pip install --no-cache-dir -r /app/mcp/requirements.txt || true
+    /opt/mcp-venv/bin/pip install --no-cache-dir -r /app/mcp/requirements.txt
 
 # Copy bundled incident diagnostic scripts to system PATH
 COPY scripts/ /usr/local/bin/
