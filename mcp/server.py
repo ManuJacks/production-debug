@@ -14,10 +14,15 @@ from typing import Any
 
 try:
     from fastmcp import FastMCP
+    try:
+        from mcp.types import ToolAnnotations
+    except ImportError:
+        ToolAnnotations = None
 
     mcp = FastMCP("production-debug-mcp")
 except ImportError:
     mcp = None
+    ToolAnnotations = None
 
 
 SAFE_DOMAIN_REGEX = re.compile(r"^[a-zA-Z0-9.-]{1,253}$")
@@ -175,25 +180,68 @@ def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> dict[str, An
 
 
 if mcp:
+    dns_annotations = (
+        ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=True,
+        )
+        if ToolAnnotations
+        else None
+    )
 
-    @mcp.tool()
+    azure_annotations = (
+        ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=True,
+        )
+        if ToolAnnotations
+        else None
+    )
+
+    network_annotations = (
+        ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
+        )
+        if ToolAnnotations
+        else None
+    )
+
+    bundle_annotations = (
+        ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
+        )
+        if ToolAnnotations
+        else None
+    )
+
+    @mcp.tool(annotations=dns_annotations)
     def run_dns_probe(domain: str, nameserver: str | None = None) -> dict[str, Any]:
         """Diagnose DNS resolution, query latency, and record availability."""
         return run_dns_probe_impl(domain, nameserver)
 
-    @mcp.tool()
+    @mcp.tool(annotations=azure_annotations)
     def check_azure_workload_identity() -> dict[str, Any]:
         """Audit Azure Workload Identity and IMDS reachability."""
         return check_azure_workload_identity_impl()
 
-    @mcp.tool()
+    @mcp.tool(annotations=network_annotations)
     def capture_network_trace_summary(
         interface: str = "eth0", duration_sec: int = 5
     ) -> dict[str, Any]:
         """Collect packet sample and network trace statistics."""
         return capture_network_trace_summary_impl(interface, duration_sec)
 
-    @mcp.tool()
+    @mcp.tool(annotations=bundle_annotations)
     def generate_incident_bundle(incident_id: str = "INCIDENT") -> dict[str, Any]:
         """Generate a sanitized, redacted incident archive."""
         return generate_incident_bundle_impl(incident_id)

@@ -157,7 +157,12 @@ def test_fw_host_probe_reads_hosts_file(tmp_path: Path) -> None:
 
 
 def test_mcp_server_dns_probe_and_azure_identity() -> None:
-    from mcp.server import check_azure_workload_identity_impl, run_dns_probe_impl
+    from mcp.server import (
+        capture_network_trace_summary_impl,
+        check_azure_workload_identity_impl,
+        generate_incident_bundle_impl,
+        run_dns_probe_impl,
+    )
 
     # Check Azure identity audit function
     identity_res = check_azure_workload_identity_impl()
@@ -167,3 +172,12 @@ def test_mcp_server_dns_probe_and_azure_identity() -> None:
     # Check DNS probe safety guardrails
     malformed_probe = run_dns_probe_impl("bad;domain$(rm -rf /)")
     assert "error" in malformed_probe
+
+    # Check network trace summary validation
+    invalid_iface = capture_network_trace_summary_impl("bad;interface$(id)")
+    assert "error" in invalid_iface
+
+    # Check generate incident bundle function
+    bundle_res = generate_incident_bundle_impl("TEST-INCIDENT-001")
+    assert isinstance(bundle_res, dict)
+    assert "status" in bundle_res or "error" in bundle_res
