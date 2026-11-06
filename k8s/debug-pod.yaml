@@ -34,7 +34,7 @@ spec:
       type: RuntimeDefault
   containers:
     - name: debugger
-      image: ghcr.io/manujacks/production-debug:0.1.0
+      image: ghcr.io/manujacks/production-debug:latest
       imagePullPolicy: IfNotPresent
       command: ["/bin/bash", "-c", "sleep infinity"]
       securityContext:
