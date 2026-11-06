@@ -44,7 +44,11 @@ tmux split-window -h -t "${SESSION_NAME}:0" \
      TARGET="${PROBE_TARGET:-1.1.1.1}"; \
      while true; do \
        echo "--- [$(date +%T)] DNS & Latency Probe ($TARGET) ---"; \
-       if command -v dig >/dev/null 2>&1; then dig +short +time=2 +tries=1 google.com || echo "DNS Lookup failed"; fi; \
+       if command -v getent >/dev/null 2>&1; then \
+         getent hosts google.com | awk "{print \$1}" | head -n 2 || echo "DNS Lookup failed"; \
+       elif command -v dig >/dev/null 2>&1; then \
+         dig +short +time=2 +tries=1 google.com || echo "DNS Lookup failed"; \
+       fi; \
        if command -v ping >/dev/null 2>&1; then ping -c 1 -W 2 "$TARGET" 2>/dev/null || echo "Ping failed"; fi; \
        sleep 5; \
      done'
