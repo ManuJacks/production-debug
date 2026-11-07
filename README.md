@@ -1,7 +1,7 @@
 # production-debug
 
 [![CI](https://github.com/ManuJacks/production-debug/actions/workflows/ci.yml/badge.svg)](https://github.com/ManuJacks/production-debug/actions/workflows/ci.yml)
-[![M8ven Score](https://m8ven.ai/badge/mcp/manujacks/production-debug)](https://m8ven.ai/mcp/manujacks/production-debug?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/manujacks-production-debug-1mpz9n?v=793a11d93008fd43e53ff7b0b4b9244c)](https://m8ven.ai/mcp/manujacks-production-debug-1mpz9n?s=readme)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-incident%20diagnostics-326CE5?logo=kubernetes&logoColor=white)](k8s/)
 
