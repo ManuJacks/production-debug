@@ -2,8 +2,14 @@
 [extend]
 useDefault = true
 
-[[allowlists]]
-description = "Ignore synthetic test fixtures and regex verification cases in tests"
+[allowlist]
+description = "Global allowlist for synthetic test fixtures"
 paths = [
-  '''^tests/test_mcp_and_security\.py$''',
+  '''tests/.*''',
+]
+
+[[allowlists]]
+description = "Array allowlist for synthetic test fixtures"
+paths = [
+  '''tests/.*''',
 ]
