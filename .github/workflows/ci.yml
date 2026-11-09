@@ -87,3 +87,26 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
+
+  test-and-verify:
+    name: Automated Security, MCP & Operational Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov
+      - name: Run test suite with reproducible JUnit & coverage reports
+        run: |
+          python3 -m pytest -v --junitxml=test-results.xml
+      - name: Upload reproducible test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-and-evidence
+          path: test-results.xml
