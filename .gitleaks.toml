@@ -1,0 +1,9 @@
+# Gitleaks configuration
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Ignore synthetic test fixtures and regex verification cases in tests"
+paths = [
+  '''^tests/test_mcp_and_security\.py$''',
+]
