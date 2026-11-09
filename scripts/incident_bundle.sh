@@ -104,6 +104,22 @@ cat >"${bundle_dir}/metadata.json" <<EOF
 }
 EOF
 
+# Redact sensitive credentials and exclude credential files from bundle
+if command -v python3 >/dev/null 2>&1; then
+  python3 -c "
+import sys
+try:
+    from production_debug.sanitizer import sanitize_directory_tree
+    res = sanitize_directory_tree('${bundle_dir}')
+    print(f'Sanitization complete: {res}')
+except Exception as e:
+    pass
+" 2>/dev/null || true
+fi
+
+# Fallback bash-level cleanup for high-risk files
+find "$payload_dir" -type f \( -name "*.pem" -o -name "*.key" -o -name "*id_rsa*" -o -name ".env*" -o -name "*kubeconfig*" \) -delete 2>/dev/null || true
+
 if [[ -d "$payload_dir" ]]; then
   bash "$script_dir/kpi_collect.sh" "$payload_dir" --format csv >"${reports_dir}/kpi.csv" || true
   bash "$script_dir/kpi_report.sh" "$payload_dir" >"${reports_dir}/kpi-report.txt" || true

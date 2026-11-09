@@ -12,36 +12,74 @@ import shutil
 import subprocess
 from typing import Any
 
-try:
-    from fastmcp import FastMCP
-    try:
-        from mcp.types import ToolAnnotations
-    except ImportError:
-        ToolAnnotations = None
-
-    mcp = FastMCP("production-debug-mcp")
-except ImportError:
-    mcp = None
-    ToolAnnotations = None
-
-
-SAFE_DOMAIN_REGEX = re.compile(r"^[a-zA-Z0-9.-]{1,253}$")
+# Domain name format: RFC 1035 label compliance
+SAFE_DOMAIN_REGEX = re.compile(
+    r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+)
+# Interface name format: typical Linux network device naming
 SAFE_IFACE_REGEX = re.compile(r"^[a-zA-Z0-9._-]{1,16}$")
+# Incident identifier format
+SAFE_INCIDENT_ID_REGEX = re.compile(r"^[a-zA-Z0-9._-]{1,64}$")
+
+# Tool annotation definitions adhering to MCP spec requirements:
+# Explicit non-null booleans for readOnlyHint, destructiveHint, idempotentHint, openWorldHint.
+DNS_PROBE_ANNOTATIONS: dict[str, Any] = {
+    "title": "DNS Probe",
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": True,
+}
+
+AZURE_IDENTITY_ANNOTATIONS: dict[str, Any] = {
+    "title": "Azure Workload Identity Check",
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": True,
+}
+
+NETWORK_TRACE_ANNOTATIONS: dict[str, Any] = {
+    "title": "Network Trace Summary",
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": False,
+    "openWorldHint": True,
+}
+
+INCIDENT_BUNDLE_ANNOTATIONS: dict[str, Any] = {
+    "title": "Generate Incident Bundle",
+    "readOnlyHint": False,
+    "destructiveHint": False,
+    "idempotentHint": False,
+    "openWorldHint": False,
+}
 
 
-def run_dns_probe_impl(domain: str, nameserver: str | None = None) -> dict[str, Any]:
+def run_dns_probe_impl(
+    domain: str,
+    nameserver: str | None = None,
+) -> dict[str, Any]:
     """Diagnose DNS resolution, query latency, and record availability."""
-    if not SAFE_DOMAIN_REGEX.match(domain):
-        return {"error": "Invalid domain name format"}
+    if not isinstance(domain, str) or not SAFE_DOMAIN_REGEX.match(domain.strip()):
+        return {
+            "status": "error",
+            "error": "Invalid domain name format. Must be a valid hostname without special shell characters.",
+        }
 
-    cmd = ["dig", "+noall", "+answer", "+stats", domain]
-    if nameserver:
-        if not SAFE_DOMAIN_REGEX.match(nameserver):
-            return {"error": "Invalid nameserver format"}
-        cmd.append(f"@{nameserver}")
+    cmd = ["dig", "+noall", "+answer", "+stats", domain.strip()]
+    if nameserver is not None:
+        if not isinstance(nameserver, str) or not SAFE_DOMAIN_REGEX.match(
+            nameserver.strip()
+        ):
+            return {
+                "status": "error",
+                "error": "Invalid nameserver format. Must be a valid hostname or IP address.",
+            }
+        cmd.append(f"@{nameserver.strip()}")
 
     if not shutil.which("dig"):
-        return {"error": "dig executable not found in PATH"}
+        return {"status": "error", "error": "dig executable not found in PATH"}
 
     try:
         proc = subprocess.run(
@@ -53,8 +91,10 @@ def run_dns_probe_impl(domain: str, nameserver: str | None = None) -> dict[str, 
             "stdout": proc.stdout,
             "stderr": proc.stderr,
         }
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "error": "DNS resolution timed out after 10s"}
     except (subprocess.SubprocessError, OSError) as exc:
-        return {"status": "error", "message": str(exc)}
+        return {"status": "error", "error": str(exc)}
 
 
 def check_azure_workload_identity_impl() -> dict[str, Any]:
@@ -79,7 +119,7 @@ def check_azure_workload_identity_impl() -> dict[str, Any]:
         },
     }
 
-    # Non-destructive curl to IMDS
+    # Non-destructive curl to Azure Instance Metadata Service (IMDS)
     if shutil.which("curl"):
         try:
             imds_cmd = [
@@ -120,50 +160,74 @@ def capture_network_trace_summary_impl(
     interface: str = "eth0", duration_sec: int = 5
 ) -> dict[str, Any]:
     """Collect a brief packet summary trace using tcpdump."""
-    if not SAFE_IFACE_REGEX.match(interface):
-        return {"error": "Invalid network interface format"}
-
-    duration = max(1, min(int(duration_sec), 30))
-    if not shutil.which("tcpdump"):
+    if not isinstance(interface, str) or not SAFE_IFACE_REGEX.match(interface.strip()):
         return {
-            "error": "tcpdump not found in PATH or insufficient capabilities (NET_ADMIN/NET_RAW required)"
+            "status": "error",
+            "error": "Invalid network interface format. Alphanumeric, dot, dash, and underscore only.",
         }
 
-    cmd = ["tcpdump", "-i", interface, "-c", "25", "-nn", "-q"]
+    try:
+        duration = max(1, min(int(duration_sec), 30))
+    except (ValueError, TypeError):
+        return {
+            "status": "error",
+            "error": "duration_sec must be an integer between 1 and 30",
+        }
+
+    if not shutil.which("tcpdump"):
+        return {
+            "status": "error",
+            "error": "tcpdump not found in PATH or insufficient capabilities (NET_ADMIN/NET_RAW required)",
+        }
+
+    cmd = ["tcpdump", "-i", interface.strip(), "-c", "25", "-nn", "-q"]
     try:
         proc = subprocess.run(
             cmd, check=False, capture_output=True, text=True, timeout=duration + 2
         )
         return {
             "status": "success",
-            "interface": interface,
+            "interface": interface.strip(),
             "packet_count": len(proc.stdout.splitlines()),
             "sample_packets": proc.stdout.splitlines()[:10],
             "stderr": proc.stderr,
         }
     except subprocess.TimeoutExpired:
-        return {"status": "timeout", "interface": interface}
+        return {"status": "timeout", "interface": interface.strip()}
     except (subprocess.SubprocessError, OSError) as exc:
-        return {"status": "error", "message": str(exc)}
+        return {"status": "error", "error": str(exc)}
 
 
-def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> dict[str, Any]:
+def generate_incident_bundle_impl(
+    incident_id: str = "INCIDENT",
+    output_dir: str = "/tmp/incident-bundle",
+) -> dict[str, Any]:
     """Generate a sanitized incident triage bundle with SHA-256 fingerprint."""
-    script_path = "/usr/local/bin/incident_bundle.sh"
+    if not isinstance(incident_id, str) or not SAFE_INCIDENT_ID_REGEX.match(
+        incident_id.strip()
+    ):
+        return {
+            "status": "error",
+            "error": "Invalid incident_id format. Alphanumeric, hyphen, and underscore only.",
+        }
+
+    # First check relative path within repo, then system path
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../scripts/incident_bundle.sh")
+    )
     if not os.path.exists(script_path):
-        # Fallback to local repo location
-        script_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../scripts/incident_bundle.sh")
-        )
+        script_path = "/usr/local/bin/incident_bundle.sh"
 
     if not os.path.exists(script_path):
-        return {"error": f"incident_bundle.sh not found at {script_path}"}
+        return {
+            "status": "error",
+            "error": f"incident_bundle.sh not found at {script_path}",
+        }
 
     try:
-        out_dir = "/tmp/incident-bundle"
-        os.makedirs(out_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
         proc = subprocess.run(
-            [script_path, incident_id, out_dir],
+            [script_path, output_dir, "--name", incident_id.strip()],
             check=False,
             capture_output=True,
             text=True,
@@ -173,78 +237,109 @@ def generate_incident_bundle_impl(incident_id: str = "INCIDENT") -> dict[str, An
             "status": "success" if proc.returncode == 0 else "failed",
             "returncode": proc.returncode,
             "stdout": proc.stdout,
-            "bundle_dir": out_dir,
+            "bundle_dir": output_dir,
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "error",
+            "error": "Incident bundle creation timed out after 30s",
         }
     except (subprocess.SubprocessError, OSError) as exc:
-        return {"status": "error", "message": str(exc)}
+        return {"status": "error", "error": str(exc)}
 
 
-if mcp:
-    dns_annotations = (
-        ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
-        )
-        if ToolAnnotations
-        else None
-    )
+# Initialize FastMCP if available, otherwise provide mock decorator pattern
+try:
+    from fastmcp import FastMCP
 
-    azure_annotations = (
-        ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
-        )
-        if ToolAnnotations
-        else None
-    )
+    mcp = FastMCP("production-debug-mcp")
+except ImportError:
+    mcp = None
 
-    network_annotations = (
-        ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
-        )
-        if ToolAnnotations
-        else None
-    )
 
-    bundle_annotations = (
-        ToolAnnotations(
-            readOnlyHint=False,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
-        )
-        if ToolAnnotations
-        else None
-    )
+class _MockDecorator:
+    @staticmethod
+    def tool(
+        name: str | None = None,
+        description: str | None = None,
+        annotations: dict[str, Any] | None = None,
+    ):
+        def decorator(fn):
+            fn._mcp_tool_name = name or fn.__name__
+            fn._mcp_tool_description = description or fn.__doc__
+            fn._mcp_annotations = annotations or {}
+            return fn
 
-    @mcp.tool(annotations=dns_annotations)
-    def run_dns_probe(domain: str, nameserver: str | None = None) -> dict[str, Any]:
-        """Diagnose DNS resolution, query latency, and record availability."""
-        return run_dns_probe_impl(domain, nameserver)
+        return decorator
 
-    @mcp.tool(annotations=azure_annotations)
-    def check_azure_workload_identity() -> dict[str, Any]:
-        """Audit Azure Workload Identity and IMDS reachability."""
-        return check_azure_workload_identity_impl()
 
-    @mcp.tool(annotations=network_annotations)
-    def capture_network_trace_summary(
-        interface: str = "eth0", duration_sec: int = 5
-    ) -> dict[str, Any]:
-        """Collect packet sample and network trace statistics."""
-        return capture_network_trace_summary_impl(interface, duration_sec)
+_decorator_source = mcp if mcp is not None else _MockDecorator
 
-    @mcp.tool(annotations=bundle_annotations)
-    def generate_incident_bundle(incident_id: str = "INCIDENT") -> dict[str, Any]:
-        """Generate a sanitized, redacted incident archive."""
-        return generate_incident_bundle_impl(incident_id)
+
+@_decorator_source.tool(
+    name="run_dns_probe",
+    description="Diagnose DNS resolution, query latency, and record availability.",
+    annotations={
+        "title": "DNS Probe",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)
+def run_dns_probe(domain: str, nameserver: str | None = None) -> dict[str, Any]:
+    """Diagnose DNS resolution, query latency, and record availability."""
+    return run_dns_probe_impl(domain, nameserver)
+
+
+@_decorator_source.tool(
+    name="check_azure_workload_identity",
+    description="Audit Azure Workload Identity and IMDS reachability.",
+    annotations={
+        "title": "Azure Workload Identity Check",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)
+def check_azure_workload_identity() -> dict[str, Any]:
+    """Audit Azure Workload Identity and IMDS reachability."""
+    return check_azure_workload_identity_impl()
+
+
+@_decorator_source.tool(
+    name="capture_network_trace_summary",
+    description="Collect packet sample and network trace statistics.",
+    annotations={
+        "title": "Network Trace Summary",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    },
+)
+def capture_network_trace_summary(
+    interface: str = "eth0", duration_sec: int = 5
+) -> dict[str, Any]:
+    """Collect packet sample and network trace statistics."""
+    return capture_network_trace_summary_impl(interface, duration_sec)
+
+
+@_decorator_source.tool(
+    name="generate_incident_bundle",
+    description="Generate a sanitized, redacted incident archive.",
+    annotations={
+        "title": "Generate Incident Bundle",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+def generate_incident_bundle(incident_id: str = "INCIDENT") -> dict[str, Any]:
+    """Generate a sanitized, redacted incident archive."""
+    return generate_incident_bundle_impl(incident_id)
 
 
 def main():
