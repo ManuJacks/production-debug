@@ -4,6 +4,13 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+- Added Perl toolchain: `perl`, `perl-doc`, `cpanminus` with full CPAN network-diagnostic module suite (`JSON::XS`, `LWP::UserAgent`, `LWP::Protocol::https`, `Net::DNS`, `Net::Ping`, `IO::Socket::SSL`, `Net::SNMP`, `Net::Pcap`, `Net::Whois::Raw`, `Term::ReadLine::Gnu`).
+- Added Python network diagnostic venv (`/opt/nettools-venv`): `orjson`, `requests`, `httpx`, `dnspython`, `icmplib`, `pyopenssl`, `cryptography`, `pysnmp`, `scapy`, `ipwhois`, `netaddr`, `paramiko` — documented in `mcp/requirements-nettools.txt` with inline purpose comments.
+- Installed `amix/vimrc` awesome-vimrc runtime (with `bash-support.vim` and `perl-support.vim` plugins) for `debuguser` via `install_awesome_parameterized.sh`.
+- Bundled `copilot.vim` and `copilot-chat.vim` plugins (via vim 8 native packages under `~/.vim/pack/`); `copilot-language-server` intentionally excluded (no Node in container — plugin loads silently, auth mountable later).
+- Added `.dockerignore` to exclude `.git` dirs, vim swap files, Python cache, and CI artifacts from build context.
+- Added build dependencies: `gcc`, `make`, `libssl-dev`, `libpcap-dev`, `libreadline-dev` (required for XS CPAN modules and Python native extensions).
+
 - Upgraded `vim-tiny` to full `vim` and added `less` for improved in-container editing.
 - Extended network diagnostic tooling: added `netcat-openbsd`, `fping`, `arping`, `tshark`, `ngrep`, `tcpflow`, `sslscan`, `ethtool`, `ipcalc`, `iptables`, `ipvsadm`, `util-linux` (nsenter).
 - Added binary installs for `crictl` (v1.31.1), `etcdctl`+`etcdutl` (etcd v3.7.3), `grpcurl` (v1.9.1), and `curlie` (v1.7.2).

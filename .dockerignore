@@ -1,0 +1,20 @@
+# Exclude version-control metadata from vim plugin bundles
+docker/vim_runtime/.git
+docker/vim_pack/**/.git
+
+# Exclude vim swap/undo files
+**/*.swp
+**/*.swo
+**/*.un~
+
+# Exclude Python cache
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.pytest_cache
+
+# Exclude CI/editor artifacts
+.github
+.vscode
+*.md
+!docker/*.md

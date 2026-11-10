@@ -1,0 +1,17 @@
+{
+    "dockerFile": "Dockerfile",
+    "postStartCommand": "sh .devcontainer/setup.sh",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "XadillaX.viml"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "[viml]": {
+                    "editor.tabSize": 2
+                }
+            }
+        }
+    }
+}

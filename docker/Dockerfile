@@ -67,7 +67,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Node-level firewall & service-proxy inspection (requires NET_ADMIN at runtime)
     iptables \
     ipvsadm \
+    # --- Perl toolchain ---
+    perl \
+    perl-doc \
+    cpanminus \
+    # Build deps for XS (C-extension) CPAN modules and Python native extensions
+    gcc \
+    make \
+    libssl-dev \
+    libpcap-dev \
+    libreadline-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Perl CPAN modules for network monitoring and diagnostics
+# cpanm --notest skips upstream test suites to keep image build time reasonable;
+# all modules are well-established, widely-used CPAN distributions.
+RUN cpanm --notest --quiet \
+    # Fast C-backed JSON parser/encoder — parse k8s/API/etcd payloads inline
+    JSON::XS \
+    # Full-featured HTTP/HTTPS client (LWP + UA + cookies + redirects + auth)
+    LWP::UserAgent \
+    LWP::Protocol::https \
+    # DNS resolver, zone queries, reverse lookups, SRV/MX/NAPTR record iteration
+    Net::DNS \
+    # ICMP / TCP / UDP host reachability probes
+    Net::Ping \
+    # TLS/SSL socket layer (required by LWP::Protocol::https & Net::DNS over TLS)
+    IO::Socket::SSL \
+    # SNMP v1/v2c/v3 — query switches, node exporters, storage controllers
+    Net::SNMP \
+    # libpcap bindings — programmatic packet capture and BPF filtering
+    Net::Pcap \
+    # WHOIS client — domain/IP ownership, ASN, route-origin, abuse contact lookups
+    Net::Whois::Raw \
+    # GNU ReadLine for the interactive Perl debugger (perl -de1)
+    Term::ReadLine::Gnu \
+    && rm -rf ~/.cpanm/work/*
 
 # Install modern kubectl (pinned v1.31.2 with multi-arch sha256 verification)
 ARG KUBECTL_VER="v1.31.2"
@@ -176,6 +211,24 @@ RUN mkdir -p /etc/apt/keyrings && \
     echo "deb [arch=${ARCH} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ ${AZ_DIST} main" > /etc/apt/sources.list.d/azure-cli.list && \
     apt-get update && apt-get install -y --no-install-recommends azure-cli && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Python network diagnostic tools into a dedicated venv (separate from MCP venv)
+# This keeps the MCP server environment lean and dependency-conflict-free.
+COPY mcp/requirements-nettools.txt /tmp/requirements-nettools.txt
+RUN python3 -m venv /opt/nettools-venv && \
+    /opt/nettools-venv/bin/pip install --no-cache-dir --upgrade pip && \
+    /opt/nettools-venv/bin/pip install --no-cache-dir -r /tmp/requirements-nettools.txt && \
+    rm -f /tmp/requirements-nettools.txt
+ENV PATH="/opt/nettools-venv/bin:$PATH"
+
+# Install vim configuration: amix/vimrc awesome-vimrc runtime + copilot.vim + copilot-chat.vim
+# The install_awesome_parameterized.sh script writes the real ~/.vimrc that sources the runtime.
+# copilot-language-server is intentionally excluded (no Node in container);
+# the plugin loads silently without it — auth can be added later via volume mount.
+COPY --chown=10001:10001 docker/vim_runtime/ /opt/vim_runtime/
+COPY --chown=10001:10001 docker/vim_pack/ /home/debuguser/.vim/pack/
+RUN bash /opt/vim_runtime/install_awesome_parameterized.sh /opt/vim_runtime debuguser && \
+    chmod -R go-w /opt/vim_runtime /home/debuguser/.vim/pack/
 
 # Setup application directory & install python dependencies for MCP server
 WORKDIR /app

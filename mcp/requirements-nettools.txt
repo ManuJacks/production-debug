@@ -1,0 +1,35 @@
+# Python network diagnostic & monitoring packages
+# Installed into /opt/nettools-venv (separate from MCP venv to keep MCP lean)
+
+# --- JSON & data handling ---
+orjson>=3.9.0           # Fastest C-backed JSON parser/encoder; ideal for large k8s/API payloads
+
+# --- HTTP clients ---
+requests>=2.31.0        # HTTP/HTTPS client with sessions, redirects, auth, proxies
+httpx>=0.27.0           # Async HTTP/1.1 + HTTP/2 client for concurrent endpoint probes
+
+# --- DNS ---
+dnspython>=2.6.0        # Full DNS resolver: A, AAAA, MX, SRV, PTR, NAPTR, zone transfer, DNSSEC
+
+# --- ICMP / reachability ---
+icmplib>=3.0            # ICMP/UDP ping, traceroute, multi-host concurrent scan (requires CAP_NET_RAW)
+
+# --- TLS / PKI ---
+pyopenssl>=24.0.0       # TLS cert inspection, chain validation, cipher enumeration, CRL/OCSP
+cryptography>=42.0.0    # Low-level X.509/key operations; underpins pyopenssl
+
+# --- SNMP ---
+pysnmp>=6.1.0           # SNMP v1/v2c/v3 GET/GETNEXT/WALK/TRAP — query switches, exporters, storage
+
+# --- Packet capture & crafting ---
+scapy>=2.5.0            # Raw packet capture, crafting, BPF filtering, ARP/ICMP/TCP probes
+                        # (requires libpcap at runtime — provided by libpcap-dev apt package)
+
+# --- WHOIS / ASN / IP intel ---
+ipwhois>=1.2.0          # WHOIS, RDAP, ASN, route-origin, abuse contact lookups
+
+# --- IP/CIDR arithmetic ---
+netaddr>=1.2.0          # IP address/CIDR/subnet math, network range iteration, MAC handling
+
+# --- SSH / remote exec ---
+paramiko>=3.4.0         # SSH client for jumping into nodes and VMs programmatically

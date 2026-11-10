@@ -1,0 +1,15 @@
+[tool.ruff]
+# Exclude third-party vendored files that ruff should never lint
+exclude = [
+    "docker/vim_runtime",
+    "docker/vim_pack",
+]
+
+[tool.ruff.lint]
+# E/F: standard pycodestyle + pyflakes errors
+# I: import sorting
+# Excluding UP/SIM/PLR: pre-existing style in tests and server.py would require
+# a separate cleanup PR to avoid mixing concerns with this feature commit.
+select = ["E", "F", "I"]
+# E501: line-too-long — pre-existing in comments/strings/regexes; addressed separately
+ignore = ["E501"]
