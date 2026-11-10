@@ -105,8 +105,13 @@ RUN set -eux; \
       "etcd-${ETCD_VER}-linux-${ETCD_ARCH}/etcdutl"; \
     rm -f /tmp/etcd.tar.gz; \
     \
-    # 10. grpcurl
-    curl -fsSL "https://github.com/fullstorydev/grpcurl/releases/download/${GRPCURL_VER}/grpcurl_${GRPCURL_VER#v}_linux_${ARCH}.tar.gz" \
+    # 10. grpcurl (upstream uses x86_64 for amd64)
+    case "$ARCH" in \
+      amd64) GRPCURL_ARCH="x86_64";; \
+      arm64) GRPCURL_ARCH="arm64";; \
+      *) GRPCURL_ARCH="$ARCH";; \
+    esac; \
+    curl -fsSL "https://github.com/fullstorydev/grpcurl/releases/download/${GRPCURL_VER}/grpcurl_${GRPCURL_VER#v}_linux_${GRPCURL_ARCH}.tar.gz" \
       | tar -xz -C /opt/bins grpcurl; \
     \
     # 11. curlie
