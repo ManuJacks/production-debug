@@ -1,0 +1,121 @@
+---
+# debug-pod-privileged.yaml
+#
+# ELEVATED-PRIVILEGE variant of the production-debug pod.
+#
+# PURPOSE:
+#   Grants the additional Linux capabilities required for node-level network
+#   diagnostics that cannot be performed with the default least-privilege pod:
+#     - iptables / nftables rule inspection  (NET_ADMIN)
+#     - ipvsadm IPVS table inspection        (NET_ADMIN)
+#     - tshark / tcpdump raw packet capture  (NET_RAW)
+#     - nsenter into pod/node namespaces     (SYS_PTRACE + hostPID)
+#     - ethtool NIC statistics               (NET_ADMIN)
+#     - crictl (CRI socket via volume mount) (no extra cap needed, socket required)
+#
+# USAGE:
+#   See docs/procedures/PRIVILEGE_ESCALATION.md for the full approval workflow.
+#   Quick launch:
+#     kubectl apply -f k8s/debug-pod-privileged.yaml
+#     kubectl exec -it -n debug-system production-debug-privileged -- bash
+#
+# AUDIT:
+#   All sessions are subject to cluster audit logging.
+#   Run /usr/local/bin/incident_bundle.sh before exiting to capture evidence.
+#
+# CAUTION:
+#   - hostPID: true allows nsenter into any process on the node.
+#   - CRI socket mount allows crictl to list/inspect all containers.
+#   - Remove this pod immediately after the incident is resolved.
+#     kubectl delete pod -n debug-system production-debug-privileged
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: production-debug-privileged
+  namespace: debug-system
+  labels:
+    app.kubernetes.io/name: production-debug
+    app.kubernetes.io/part-of: production-debug-toolkit
+    app.kubernetes.io/component: elevated-incident-triage
+  annotations:
+    # Mandatory: incident ticket reference before this pod is admitted
+    production-debug/incident-ref: "INCIDENT-XXXX"
+    production-debug/approved-by: "CHANGE-XXXX"
+    production-debug/escalation-reason: "SET THIS — e.g. iptables inspection on node ip-10-0-1-5"
+spec:
+  serviceAccountName: prod-debug-sa
+  automountServiceAccountToken: true
+  restartPolicy: Never
+  # hostPID required for nsenter to reach node/pod process namespaces
+  hostPID: true
+  tolerations:
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 6000
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 6000
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+  # Optional: pin to the specific node under investigation
+  # nodeSelector:
+  #   kubernetes.io/hostname: ip-10-0-1-5
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      # RuntimeDefault still permits the syscalls needed by all tools below.
+      # Switch to Unconfined only if a tool explicitly fails seccomp filtering.
+      type: RuntimeDefault
+  containers:
+    - name: debugger
+      image: ghcr.io/manujacks/production-debug:latest
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/bash", "-c", "sleep infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+        capabilities:
+          drop:
+            - ALL
+          add:
+            # --- Always present (same as standard pod) ---
+            - NET_RAW       # tcpdump, tshark raw packet capture
+            - SYS_PTRACE    # strace, nsenter process namespace entry
+
+            # --- Elevated: required for this manifest ---
+            - NET_ADMIN     # iptables, ipvsadm, ip rule, ethtool, tshark promisc mode
+            - SYS_ADMIN     # nsenter --mount (filesystem namespace entry); drop if unneeded
+      resources:
+        limits:
+          cpu: "2"
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      volumeMounts:
+        - name: incident-output
+          mountPath: /tmp/incident-bundle
+        # CRI socket — mount the correct path for your runtime:
+        #   containerd: /run/containerd/containerd.sock
+        #   CRI-O:      /var/run/crio/crio.sock
+        #   Docker/moby: /var/run/docker.sock
+        - name: cri-socket
+          mountPath: /run/containerd/containerd.sock
+          readOnly: true
+      env:
+        - name: CONTAINER_RUNTIME_ENDPOINT
+          value: "unix:///run/containerd/containerd.sock"
+  volumes:
+    - name: incident-output
+      emptyDir: {}
+    - name: cri-socket
+      hostPath:
+        path: /run/containerd/containerd.sock
+        type: Socket

@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-transport-https \
     tmux \
     jq \
+    less \
     ripgrep \
     bind9-dnsutils \
     iproute2 \
@@ -42,11 +43,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     strace \
     lsof \
     tree \
-    vim-tiny \
+    vim \
     bsdextrautils \
     python3 \
     python3-pip \
     python3-venv \
+    # --- Extended network diagnostics ---
+    # Connectivity & port testing
+    netcat-openbsd \
+    iputils-arping \
+    fping \
+    ipcalc \
+    # Namespace entry (K8s pod netns debugging)
+    util-linux \
+    # Protocol dissection & stream reassembly
+    tshark \
+    ngrep \
+    tcpflow \
+    # TLS/SSL auditing
+    sslscan \
+    # NIC / driver statistics
+    ethtool \
+    # Node-level firewall & service-proxy inspection (requires NET_ADMIN at runtime)
+    iptables \
+    ipvsadm \
     && rm -rf /var/lib/apt/lists/*
 
 # Install modern kubectl (pinned v1.31.2 with multi-arch sha256 verification)
@@ -70,7 +90,7 @@ RUN set -eux; \
     tar -xz --strip-components=1 -C /usr/local/bin -f "/tmp/${HELM_FILE}" "linux-${ARCH}/helm"; \
     rm -f "/tmp/${HELM_FILE}" /tmp/helm.sha256sum
 
-# Install Staff SRE K8s Diagnostic Suite: K9s, Stern, kubectx/kubens, kubectl-neat, kubectl-tree
+# Install Staff SRE K8s Diagnostic Suite: K9s, Stern, kubectx/kubens, kubectl-neat, kubectl-tree, crictl, etcdctl/etcdutl, grpcurl, curlie
 ARG K9S_VER="v0.32.7"
 ARG STERN_VER="1.31.0"
 ARG KUBECTX_VER="v0.9.5"
@@ -100,6 +120,52 @@ RUN set -eux; \
     # 5. kubectl-tree
     curl -fsSL "https://github.com/ahmetb/kubectl-tree/releases/download/${TREE_VER}/kubectl-tree_${TREE_VER}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin kubectl-tree; \
     chmod +x /usr/local/bin/kubectl-tree
+
+# Install crictl (CRI container runtime inspector — matches kubectl minor version)
+ARG CRICTL_VER="v1.31.1"
+RUN set -eux; \
+    ARCH=$(dpkg --print-architecture); \
+    curl -fsSL "https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_VER}/crictl-${CRICTL_VER}-linux-${ARCH}.tar.gz" \
+      | tar -xz -C /usr/local/bin crictl; \
+    chmod +x /usr/local/bin/crictl
+
+# Install etcd client tools: etcdctl (live cluster queries) + etcdutl (offline snapshot inspection)
+# Note: etcd server binary intentionally excluded — this is a client-only install
+ARG ETCD_VER="v3.7.3"
+RUN set -eux; \
+    ARCH=$(dpkg --print-architecture); \
+    case "$ARCH" in \
+      amd64) ETCD_ARCH="amd64";; \
+      arm64) ETCD_ARCH="arm64";; \
+      *) echo "Unsupported arch: $ARCH" && exit 1;; \
+    esac; \
+    curl -fsSL "https://github.com/etcd-io/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-${ETCD_ARCH}.tar.gz" \
+      -o /tmp/etcd.tar.gz; \
+    tar -xz --strip-components=1 -C /usr/local/bin \
+      -f /tmp/etcd.tar.gz \
+      "etcd-${ETCD_VER}-linux-${ETCD_ARCH}/etcdctl" \
+      "etcd-${ETCD_VER}-linux-${ETCD_ARCH}/etcdutl"; \
+    rm -f /tmp/etcd.tar.gz; \
+    chmod +x /usr/local/bin/etcdctl /usr/local/bin/etcdutl
+
+# Install grpcurl (gRPC service inspector) and curlie (human-readable curl)
+ARG GRPCURL_VER="v1.9.1"
+ARG CURLIE_VER="v1.7.2"
+RUN set -eux; \
+    ARCH=$(dpkg --print-architecture); \
+    # grpcurl
+    curl -fsSL "https://github.com/fullstorydev/grpcurl/releases/download/${GRPCURL_VER}/grpcurl_${GRPCURL_VER#v}_linux_${ARCH}.tar.gz" \
+      | tar -xz -C /usr/local/bin grpcurl; \
+    chmod +x /usr/local/bin/grpcurl; \
+    # curlie
+    case "$ARCH" in \
+      amd64) CURLIE_ARCH="amd64";; \
+      arm64) CURLIE_ARCH="arm64";; \
+      *) echo "Unsupported arch: $ARCH" && exit 1;; \
+    esac; \
+    curl -fsSL "https://github.com/rs/curlie/releases/download/${CURLIE_VER}/curlie_${CURLIE_VER#v}_linux_${CURLIE_ARCH}.tar.gz" \
+      | tar -xz -C /usr/local/bin curlie; \
+    chmod +x /usr/local/bin/curlie
 
 # Install Azure CLI
 RUN mkdir -p /etc/apt/keyrings && \
