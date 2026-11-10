@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     make \
     libssl-dev \
+    zlib1g-dev \
     libpcap-dev \
     libreadline-dev \
     python3 \
@@ -130,7 +131,7 @@ RUN set -eux; \
 # cpanm -l /opt/perl-vendor installs into:
 #   /opt/perl-vendor/lib/perl5/           (pure-Perl modules)
 #   /opt/perl-vendor/lib/perl5/<archname> (compiled XS .so files)
-# gcc + libssl-dev + libpcap-dev + libreadline-dev are required here
+# gcc + libssl-dev + zlib1g-dev + libpcap-dev + libreadline-dev are required here
 # but will NOT be present in the final image.
 # ---------------------------------------------------------------------------
 RUN cpanm --notest --quiet -l /opt/perl-vendor \
