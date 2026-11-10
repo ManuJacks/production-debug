@@ -27,14 +27,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ---------------------------------------------------------------------------
 # Binary versions (pinned — override at build time with --build-arg if needed)
 # ---------------------------------------------------------------------------
-ARG KUBECTL_VER="v1.31.2"
+ARG KUBECTL_VER="v1.37.1"
 ARG HELM_VER="v3.17.3"
 ARG K9S_VER="v0.32.7"
 ARG STERN_VER="1.31.0"
 ARG KUBECTX_VER="v0.9.5"
 ARG NEAT_VER="v2.0.4"
 ARG TREE_VER="v0.4.3"
-ARG CRICTL_VER="v1.31.1"
+ARG CRICTL_VER="v1.37.0"
 ARG ETCD_VER="v3.7.3"
 ARG GRPCURL_VER="v1.9.1"
 ARG CURLIE_VER="v1.7.2"
@@ -222,6 +222,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lsof \
     tree \
     vim \
+    git \
     bsdextrautils \
     # Python interpreter (runs pre-built venvs copied from builder)
     python3 \

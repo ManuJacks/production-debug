@@ -35,7 +35,7 @@ spec:
   containers:
     - name: debugger
       image: ghcr.io/manujacks/production-debug:latest
-      imagePullPolicy: IfNotPresent
+      imagePullPolicy: Always
       command: ["/bin/bash", "-c", "sleep infinity"]
       securityContext:
         allowPrivilegeEscalation: false
