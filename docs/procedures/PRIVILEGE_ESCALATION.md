@@ -52,7 +52,7 @@ Which capability is specifically needed?
     SYS_ADMIN (nsenter --mount)
          │
          ▼
-    Requires additional approval (Staff SRE or above) → use debug-pod-privileged.yaml
+    Requires approval from the role designated by local break-glass policy → use debug-pod-privileged.yaml
          │
     hostPID needed
          │
@@ -69,7 +69,7 @@ Which capability is specifically needed?
 Before deploying the privileged pod you **must**:
 
 - [ ] Have an open incident ticket (e.g. `INCIDENT-1234`)
-- [ ] Have peer/team lead approval documented in the ticket
+- [ ] Have approval from the role designated by the local break-glass policy documented in the ticket
 - [ ] Know the specific node you need to target (or accept cluster-wide scheduling)
 - [ ] Confirm the standard pod was insufficient (document what failed)
 

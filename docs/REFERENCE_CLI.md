@@ -4,7 +4,7 @@
 |---|---|---|
 | `scripts/incident_preflight.sh` | Validate local and incident prerequisites | Non-zero for failed required checks |
 | `scripts/remote_dns_tls_check.sh` | Check DNS, TCP, and TLS to an endpoint | Non-zero when a check fails |
-| `scripts/incident_bundle.sh` | Create a redacted, checksummed evidence archive | Non-zero on invalid input or packaging failure |
+| `scripts/incident_bundle.sh` | Create an evidence archive with best-effort redaction of recognized secret patterns | Non-zero on invalid input or packaging failure; review contents before sharing |
 | `scripts/kpi_collect.sh` | Normalize `METRIC|` records | Non-zero for missing or invalid input |
 | `scripts/kpi_report.sh` | Report aggregate incident-tool metrics | Non-zero for unreadable input |
 | `scripts/kpi_compare.sh` | Compare baseline and candidate metrics | Non-zero for invalid sources |

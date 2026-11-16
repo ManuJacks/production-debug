@@ -1,6 +1,6 @@
 # Incident Game-Day Checklist
 
-Use this checklist to run repeatable quarterly incident exercises and prove that the platform improves real production response behavior.
+Use this checklist to run repeatable quarterly exercises and assess whether procedures and tools support a clear, transferable response. Exercise results are not by themselves proof of production readiness or real-world impact.
 
 ## Purpose
 
@@ -21,6 +21,7 @@ Use this checklist to run repeatable quarterly incident exercises and prove that
 - Confirm exercise date, participants, and communication channel.
 - Select one scenario from the scenario catalog below.
 - Confirm exercise environment and safety constraints.
+- Use synthetic indicators and isolated lab systems; do not probe real suspected-malicious infrastructure.
 - Confirm all responders can attach to a shared tmux session host.
 - Confirm required environment variables are available on the host.
 - Confirm baseline telemetry source exists for KPI delta comparison.
@@ -44,6 +45,12 @@ Pick one scenario each quarter and rotate coverage.
 - Trigger condition: package fetch failures and intermittent 502 responses.
 - Expected tools: profiles/incident-toolkit.json, scripts/artifactory-package-resolution-check.sh, scripts/artifactory-502-triage.sh.
 - Success criteria: responders classify fault domain and capture metric lines for evidence.
+
+4. Synthetic supply-chain incident and responder handoff
+- Trigger condition: a fictional package/version is reported as suspicious, with separate simulated evidence for upstream access and internal artifact presence.
+- Expected tools: the published incident evidence template and approved diagnostic scripts; do not contact real external indicators or handle secret values.
+- Expected inputs: a scenario-provided mock credential-rotation plan; do not use real credentials.
+- Success criteria: responders distinguish upstream blocking from internal artifact remediation, identify credential dependencies and verification gaps, and hand the investigation to a responder who was not given private scenario context.
 
 ## Execution checklist (exercise day)
 
@@ -70,13 +77,14 @@ Pick one scenario each quarter and rotate coverage.
 - Generate KPI report for the candidate exercise data.
 - Generate KPI baseline delta report.
 - Verify KPI checksum artifact generation command path.
-- Draft evidence notes using docs/INCIDENT_EVIDENCE_TEMPLATE.md.
+- Record scenario observations and decisions using `docs/procedures/INCIDENT_EVIDENCE_TEMPLATE.md`.
+- Record exercise outcomes using `docs/procedures/TOOLING_OUTCOME_TEMPLATE.md`.
 
 ### D. Teamwork and handoff validation (10 to 15 minutes)
 
-- Perform one role swap (driver to navigator or navigator to driver).
-- Perform one handoff simulation to another responder.
-- Confirm new responder can continue without private context.
+- Perform one role swap and one mid-exercise handoff to a responder who has not been briefed privately.
+- Give the incoming responder only the written record and referenced evidence.
+- Confirm they can identify current impact, verified findings, open questions, next owner and stop conditions.
 - Record blockers to follow-the-sun continuity.
 - Record system and process contributors, not individual fault.
 
@@ -87,8 +95,10 @@ All criteria should be true before the exercise is marked complete.
 - Shared session model validated by at least two responders.
 - Scenario classified with explicit fault domain and next checks.
 - Runbook path executed without hidden or private steps.
+- A new responder continues the exercise from the written handoff without private coaching.
+- Decisions, owners, authorization needs, unknowns and independent verification are explicit.
 - KPI summary and KPI delta generated.
-- Evidence template populated for the exercise.
+- Incident record and tooling-outcome templates populated for the exercise.
 - Follow-up actions assigned with owners and target dates.
 
 ## Scoring rubric

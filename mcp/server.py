@@ -202,7 +202,7 @@ def generate_incident_bundle_impl(
     incident_id: str = "INCIDENT",
     output_dir: str = "/tmp/incident-bundle",
 ) -> dict[str, Any]:
-    """Generate a sanitized incident triage bundle with SHA-256 fingerprint."""
+    """Create an incident bundle using the script's best-effort sanitization."""
     if not isinstance(incident_id, str) or not SAFE_INCIDENT_ID_REGEX.match(
         incident_id.strip()
     ):
@@ -328,7 +328,7 @@ def capture_network_trace_summary(
 
 @_decorator_source.tool(
     name="generate_incident_bundle",
-    description="Generate a sanitized, redacted incident archive.",
+    description="Create an incident archive with best-effort sensitive-pattern redaction.",
     annotations={
         "title": "Generate Incident Bundle",
         "readOnlyHint": False,
@@ -338,7 +338,7 @@ def capture_network_trace_summary(
     },
 )
 def generate_incident_bundle(incident_id: str = "INCIDENT") -> dict[str, Any]:
-    """Generate a sanitized, redacted incident archive."""
+    """Create an incident archive with best-effort sensitive-pattern redaction."""
     return generate_incident_bundle_impl(incident_id)
 
 

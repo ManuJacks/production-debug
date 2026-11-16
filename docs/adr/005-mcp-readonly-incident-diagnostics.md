@@ -20,12 +20,16 @@ The platform adopts the **Model Context Protocol (MCP)** as the standard interfa
 
 Specifically:
 - An internal MCP server runs within or adjacent to the debug container.
-- **Strict Read-Only Boundary**: All exposed MCP tools are strictly read-only diagnostics (e.g. `query_k8s_events`, `run_dns_probe`, `check_azure_workload_identity`, `generate_sanitized_incident_bundle`).
+- **No target-system remediation through MCP**: Exposed diagnostics must not mutate target infrastructure. Generating an incident bundle writes local evidence files and is not a read-only operation on the local filesystem.
 - **No Direct Shell Execution via MCP**: The MCP server does not provide arbitrary bash/eval tools.
-- **Structured Audit Logging**: Every tool call initiated by an AI model is logged with timestamps, caller metadata, and parameters into the incident bundle.
-- **Sanitized Outputs**: Outputs automatically scrub Azure bearer tokens, connection strings, and Kubernetes secret payloads before returning responses to the LLM.
+- **Auditability**: Tool activity should be attributable and recorded where the MCP host provides caller metadata and audit storage.
+- **Sensitive-output handling**: Avoid returning secret values. Where sanitization is implemented, treat it as defense in depth, not a guarantee; operators must review evidence before sharing.
 
 ## Consequences
 
 - Positive: Enables safe AI pair-debugging during high-pressure outages without risk of catastrophic unintended side-effects.
 - Costs: Adding and testing new diagnostics requires defining explicit JSON schemas and MCP tool handlers.
+
+## Implementation status and limitations
+
+This ADR records the intended safety contract, not proof that every control is implemented. The current server does not provide comprehensive per-tool audit logging or sanitize every diagnostic response. The bundle script attempts best-effort pattern-based redaction, which can fail without blocking bundle creation. Do not treat MCP output or generated bundles as guaranteed secret-free or tamper-proof.

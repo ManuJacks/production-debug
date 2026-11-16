@@ -5,22 +5,24 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-incident%20diagnostics-326CE5?logo=kubernetes&logoColor=white)](k8s/)
 
-**A portable, security-conscious incident diagnostics toolkit for Kubernetes, Azure and Linux infrastructure.**
+**Evidence-led incident diagnostics for Kubernetes, Azure and Linux infrastructure—designed to make investigations easier to share and hand off.**
 
-`production-debug` provides a repeatable environment for investigating infrastructure incidents, collecting diagnostic evidence and supporting structured incident response. It combines Kubernetes-aware tooling, network and DNS diagnostics, Azure connectivity checks, interactive terminal workflows and synthetic failure exercises.
+`production-debug` helps responders investigate incidents without relying on one person to hold the whole picture. It provides repeatable diagnostic workflows, shared evidence capture and handoff practices across Kubernetes, networking, Azure and Linux. A synthetic supply-chain incident is one demanding use case, not the limit of the project.
 
 The project demonstrates an engineering approach to operational tooling: explicit permissions, hardened runtime configuration, reproducible workflows, documented limitations and testable troubleshooting procedures.
 
-**Project documentation:** [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md) · [Operating Model](docs/OPERATING_MODEL.md) · [CLI Reference](docs/REFERENCE_CLI.md) · [Troubleshooting Exercises](docs/EXERCISES.md)
+**Project documentation:** [Incident Readiness Roadmap](docs/roadmap/incident-response-resilience.md) · [Operating Model](docs/OPERATING_MODEL.md) · [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md) · [CLI Reference](docs/REFERENCE_CLI.md) · [Troubleshooting Exercises](docs/EXERCISES.md)
 
 ---
 
 ## Why this project exists
 
-During a high-severity production incident, responders need to establish what is failing, where the fault lies and what evidence supports the diagnosis.
+During a high-severity production incident, responders need to establish what is failing, where the fault lies and what evidence supports the diagnosis—and make that understanding usable by the rest of the response team.
 
 That becomes difficult when:
 
+- Critical system context and incident history are concentrated in one or two people.
+- Responders cannot easily take over from a teammate using the available notes and evidence.
 - Diagnostic tools and commands differ between responders.
 - Network restrictions, DNS, routing and cloud identity introduce additional fault domains.
 - Engineers request excessive Kubernetes permissions simply to inspect workloads.
@@ -28,9 +30,9 @@ That becomes difficult when:
 - Temporary diagnostic environments disappear before useful evidence is collected.
 - Incident timelines and operational metrics must be reconstructed manually.
 
-`production-debug` addresses these challenges by providing a consistent diagnostic environment and repeatable operating procedures.
+`production-debug` addresses these challenges with a consistent diagnostic environment, repeatable procedures and evidence that can be reviewed and handed off.
 
-The objective is not to automate incident command or replace engineering judgement. It is to reduce diagnostic friction, improve shared visibility and make investigations more structured and reproducible.
+The objective is to reduce dependence on undocumented individual knowledge—not to automate incident command, assign organizational authority or replace engineering judgment. The deploying organization remains responsible for decision rights, approvals and remediation.
 
 ## Engineering principles
 
@@ -142,11 +144,9 @@ The Kubernetes ServiceAccount token is mounted because the toolkit needs to comm
 
 ### Credential and evidence handling
 
-The incident bundle script packages selected diagnostic artifacts, metadata and KPI reports.
+The incident bundle script packages selected diagnostic artifacts, metadata and KPI reports. It attempts best-effort redaction of recognized secret patterns and removes certain sensitive filenames.
 
-**Important limitation:** Automated secret redaction is not currently implemented. Diagnostic output may contain sensitive information, including tokens, internal addresses, connection details or customer data.
-
-Review and sanitize artifacts before sharing them outside the authorized incident-response group.
+**Important limitation:** Redaction is not comprehensive or guaranteed, and sanitization can fail without preventing bundle creation. Unrecognized secrets and other sensitive information may remain. Review and sanitize every bundle before sharing it.
 
 Session logs capture terminal output but are not tamper-proof or guaranteed append-only. Protect them using appropriate filesystem permissions, retention policies and external evidence-storage controls.
 
@@ -157,7 +157,7 @@ The toolkit does not independently guarantee:
 - Correct authorization in every target environment.
 - Azure identity authentication merely because identity configuration is detected.
 - Network connectivity through restrictive firewalls or NetworkPolicies.
-- Automatic sanitization of incident evidence.
+- Comprehensive sanitization of incident evidence.
 - Tamper-proof or immutable evidence storage.
 
 These remain responsibilities of the deploying organization and incident responders.
@@ -555,7 +555,7 @@ bash ./scripts/incident_bundle.sh /tmp/bundles ./telemetry
 
 The script creates a timestamped compressed archive containing selected inputs, metadata and KPI reports.
 
-Review the resulting contents before sharing. Automated secret redaction and tamper-proof evidence storage are not currently provided.
+The bundle attempts best-effort redaction of recognized secret patterns and removes certain sensitive filenames, but sanitization is not comprehensive or guaranteed and may fail without preventing bundle creation. Review and sanitize every bundle before sharing. The archive is not tamper-proof.
 
 ### Operational metrics
 
@@ -631,7 +631,7 @@ The toolkit supports incident command and driver/navigator/scribe collaboration,
 This project is an evolving engineering reference and diagnostic toolkit. Its current boundaries are explicit:
 
 - Kubernetes RBAC is read-only but cluster-wide in the supplied deployment.
-- Automated evidence redaction is not implemented.
+- Bundle redaction is best-effort and does not replace manual review.
 - Session logs are not immutable or tamper-proof.
 - Azure identity configuration detection does not prove successful authentication.
 - Synthetic exercises model selected failure modes and do not reproduce every production condition.
@@ -648,10 +648,12 @@ Future development can extend scenario coverage, improve evidence integrity and 
 - [Operating Model](docs/OPERATING_MODEL.md)
 - [CLI Reference](docs/REFERENCE_CLI.md)
 - [New Features](docs/NEW_FEATURES.md)
+- [Incident Readiness Roadmap](docs/roadmap/incident-response-resilience.md)
 - [Troubleshooting Exercises](docs/EXERCISES.md)
 - [Synthetic Proof and Evidence](docs/evidence/SYNTHETIC_PROOF.md)
 - [Game Day Checklist](docs/procedures/GAME_DAY_CHECKLIST.md)
 - [Incident Evidence Template](docs/procedures/INCIDENT_EVIDENCE_TEMPLATE.md)
+- [Tooling Outcome Template](docs/procedures/TOOLING_OUTCOME_TEMPLATE.md)
 - [Release Policy](docs/RELEASE_POLICY.md)
 - [Architecture Decision Records](docs/adr/)
 

@@ -32,16 +32,16 @@ Behavior-impacting changes must update `CHANGELOG.md` with:
 2. `CHANGELOG.md` updated
 3. Docs updated for any user-visible behavior
 4. Version updated/tagged according to semantic versioning
-5. SBOM artifact with signed provenance attestation generated and attached to release
+5. For container releases, verify the published image signature and confirm that its SBOM is attached. A signed build-provenance attestation is not currently published by the configured workflow.
 
 ## Supply chain controls
 
-- All third-party GitHub Actions are pinned to immutable commit SHAs.
+- Third-party GitHub Actions in `kpi-publish.yml` are pinned to immutable commit SHAs. Other workflows still use version tags; pin them before claiming repository-wide immutability.
 - Dependency vulnerability scanning runs in CI on every push via `pip-audit`.
-- SBOM is generated for every CI run and uploaded as an artifact.
-- KPI and evidence artifacts now include SHA256 checksum manifests in CI outputs for immediate integrity verification.
-- SBOM provenance attestation via `actions/attest-build-provenance` is tracked as a future milestone (requires a public repository or an eligible GitHub plan). See Priority 3 in `docs/NEW_FEATURES.md`.
-- To verify a release artifact attestation (once enabled): `gh attestation verify <artifact> --repo <owner>/<repo>`
+- The container publish workflow signs the published image and attaches a CycloneDX SBOM to it.
+- The KPI publishing workflow includes a SHA256 manifest for its KPI output artifacts.
+- A separate signed build-provenance attestation is not currently configured; do not describe the SBOM attachment or image signature as an attestation.
+- Verify the published image signature and attached SBOM by immutable image digest before relying on them.
 
 ## Third-party artifact policy
 
@@ -54,9 +54,8 @@ Behavior-impacting changes must update `CHANGELOG.md` with:
 - CI enforces this policy by failing if tracked files under `third_party/` include runtime directories (`app/`) or common binary extensions (`.dll`, `.so`, `.dylib`, `.exe`, `.jar`, `.zip`, etc.).
 - If source-level review is required, reference the upstream source repository or image digest in documentation instead of committing runtime payloads.
 
-Current verification commands for CI artifacts:
+Current verification command for the KPI publishing artifact:
 
 ```bash
 sha256sum -c kpi-artifacts.sha256
-sha256sum -c sbom.cyclonedx.sha256
 ```

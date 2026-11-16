@@ -1,7 +1,7 @@
 """
-Credential and sensitive data sanitization and redaction engine for production triage.
-Guarantees that credentials, tokens, private keys, and sensitive environment variables
-cannot leak into incident archives or logs.
+Best-effort redaction of recognized credential patterns and sensitive files.
+Pattern-based sanitization is not comprehensive and cannot guarantee that all
+sensitive information is removed from incident archives or logs.
 """
 
 from __future__ import annotations

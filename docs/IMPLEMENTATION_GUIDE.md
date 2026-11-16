@@ -63,7 +63,7 @@ Responders run `k8s-debug-tmux` (or `bash /usr/local/bin/launch-tmux-triage.sh`)
 +------------------------------------+------------------------------------+
 ```
 
-* **Session Recording**: Pane 4 automatically pipes all standard output and user input to `/tmp/incident-bundle/session-<timestamp>.log` using the `script` utility, creating a tamper-resistant timeline for post-mortems.
+* **Session Recording**: Pane 4 records terminal activity to `/tmp/incident-bundle/session-<timestamp>.log` using the `script` utility. The log is useful for review but is not tamper-proof; protect and retain it according to local evidence-handling policy.
 
 ---
 
@@ -100,7 +100,7 @@ The container includes a Model Context Protocol server exposing read-only tools 
 1. `run_dns_probe(domain, nameserver)`: Performs sanitized DNS inspection without risk of command injection.
 2. `check_azure_workload_identity()`: Audits Azure Workload Identity variables (`AZURE_CLIENT_ID`, `AZURE_FEDERATED_TOKEN_FILE`) and verifies 169.254.169.254 IMDS metadata without revealing token secrets.
 3. `capture_network_trace_summary(interface, duration_sec)`: Collects a bounded sample of network packets.
-4. `generate_incident_bundle(incident_id)`: Creates a sanitized incident archive with secret redaction.
+4. `generate_incident_bundle(incident_id)`: Calls the incident bundle script to create an archive. The script attempts best-effort redaction of recognized secret patterns and removes certain sensitive filenames; it does not guarantee complete sanitization or tamper-proof storage. Review the bundle before sharing.
 
 ### Starting MCP Server:
 ```bash

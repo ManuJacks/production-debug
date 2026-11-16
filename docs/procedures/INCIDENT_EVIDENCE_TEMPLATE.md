@@ -1,62 +1,79 @@
-# Incident Evidence Template
+# Incident Evidence and Handoff Template
 
-Use this template to create repeatable, auditable evidence that incident tooling changes produced measurable operational improvement.
+Use this record to make an investigation reviewable and transferable. Record only information approved for the incident channel and evidence store. Do not include secret values.
 
-## Incident metadata
+## Incident and roles
 
 - Incident ID:
-- Date range:
-- Environment:
-- Services impacted:
-- Responders:
-- Change under evaluation:
+- Date/time range and timezone:
+- Environment and affected service(s):
+- Incident commander / decision owner:
+- Driver:
+- Navigator:
+- Scribe:
+- Current status:
 
-## Before/after telemetry sources
+## Situation and impact
 
-- Baseline telemetry source:
-- Candidate telemetry source:
-- KPI comparison command:
+- Customer or operational impact:
+- Known affected systems:
+- Current containment state:
+- Immediate risks and stop conditions:
 
-```bash
-bash scripts/kpi_compare.sh <baseline_source> <candidate_source>
-```
+## Timeline and observations
 
-## KPI deltas
+For each entry, distinguish the time the event occurred from the time evidence was collected when both are available.
 
-Capture output from `scripts/kpi_compare.sh` here.
+| Time (with timezone) | Source / system | Observation or action | Classification (fact / hypothesis / recommendation) | Owner |
+|---|---|---|---|---|
+| | | | | |
 
-- Delta events:
-- Delta success rate (%):
-- Delta p50 duration (s):
+## Decisions and actions
 
-## Failure-domain diagnostics evidence
+| Action or decision | Owner | Required authorization / approver | Status | Evidence and verification |
+|---|---|---|---|---|
+| | | | | |
 
-For package resolution and 502 triage runs, capture representative output and metric lines.
+Record proposed or completed actions separately from observed facts. Note who authorized consequential actions and where that authorization is recorded.
 
-- Package resolution sample output:
-- 502 triage sample output:
-- `METRIC|...` lines captured:
+## Supply-chain investigation (when applicable)
 
-## Verification and trust evidence
+- Package coordinates and versions:
+- Configured and observed package sources:
+- Internal artifact repositories checked and results:
+- Upstream containment checks and results:
+- Known consuming pipelines/builds:
+- Credential references and dependent systems (references only; never values):
+- Rotation status:
+- Revocation status:
+- Independent validation of dependent systems:
 
-- KPI artifact checksum manifest verified: yes/no
-- SBOM checksum manifest verified: yes/no
-- Commands used:
+Keep internal artifact presence/removal distinct from upstream source availability/blocking. Neither alone proves the package was consumed or that the incident is contained.
 
-```bash
-sha256sum -c kpi-artifacts.sha256
-sha256sum -c sbom.cyclonedx.sha256
-```
+## Open questions and evidence gaps
 
-## Adoption evidence
+| Question or gap | Why it matters | Owner | Next check / due time |
+|---|---|---|---|
+| | | | |
 
-- Number of incidents using default toolkit panes with the new checks:
-- Number of responders who executed the new checks:
-- Hand-off quality notes:
-- Postmortem references:
+## Handoff
 
-## Decision
+- Current impact and risk:
+- Verified findings:
+- Current hypotheses and confidence:
+- Checks already performed:
+- Evidence locations:
+- Next action and owner:
+- Required approval or escalation:
+- Explicit stop conditions:
 
-- Promote change to standard incident workflow: yes/no
-- Follow-up actions:
-- Owner and target date:
+The incoming responder should be able to continue from this record and its referenced evidence without private briefing.
+
+## Closure and independent verification
+
+- Recovery or containment criteria:
+- Verification performed, by whom, and when:
+- Remaining risks, exceptions, or unknowns:
+- Follow-up actions, owners, and target dates:
+- Evidence retention location and access restrictions:
+- Blameless review or exercise reference:

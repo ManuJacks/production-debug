@@ -1,115 +1,89 @@
 # New Features Roadmap
 
-This document tracks concrete next features to push the project from strong to top-tier platform engineering maturity.
+This roadmap prioritizes one outcome: **make incident response resilient to handoffs and knowledge concentration, so the response does not depend on one person holding the whole picture.**
 
-## Fastest Path To Excellence.
+The existing Kubernetes, Azure, Linux and artifact diagnostics remain useful capabilities in service of that outcome. A synthetic supply-chain incident is the first demanding cross-team exercise, not a commitment to turn the project into a supply-chain scanner or to build every enterprise integration.
 
-If this repository is judged as a platform engineering sample, the shortest path from excellent to exceptional is not adding more scripts. It is proving that the current operating model is durable, governable, and trusted under organizational pressure.
+The project can make evidence, procedures, ownership and gaps easier to share. It cannot grant incident authority, compel organizational coordination or replace human judgment; those remain organizational responsibilities.
+
+## What success looks like
+
+An engineer who was not privately briefed can use the published procedures and evidence to continue an investigation, identify what is known and unknown, and make a safe handoff. The team can see who owns each action, what authorization is required, and how recovery or containment will be independently verified.
 
 The five highest-leverage moves are:
 
-1. Integration realism
-   Add failure-path and remote-command integration coverage for the highest-risk workflows so the repo proves command wiring, not only local unit behavior.
-   Why it matters: elite platform engineering is trusted because it behaves correctly in the ugly paths, not only the happy paths.
-
-2. Release provenance and signing
-   Add release-time attestation, artifact signing, and verification steps so the project demonstrates supply-chain integrity beyond basic CI hardening.
-   Why it matters: top-tier platform teams treat trust in the release artifact itself as a first-class product property.
-
-3. ADR baseline
-   Record the core engineering decisions behind safe-by-default execution, telemetry contracts, and compatibility policy.
-   Why it matters: a 13/10 platform is not just well built; it is legible, defensible, and durable when teams or maintainers change.
-
-4. Operational readiness evidence
-   Add game-day execution, runbook validation, and documented follow-up actions that show the repo improves real incident response outcomes over time.
-   Why it matters: operational excellence is proven through repeated use and learning loops, not only through clean code and documentation.
-
-5. Outcome reporting
-   Publish KPI trend summaries, incident bundle examples, and before/after operational results that demonstrate measurable value from adoption.
-   Why it matters: platform engineering reaches the next tier when it can show reduced ambiguity, faster triage, safer changes, and better handoffs with evidence.
-
-Definition of 13/10 for this repo:
-
-- Trusted in failure paths, not only feature paths
-- Governed by explicit engineering decisions
-- Verifiable from source to release artifact
-- Practiced through operational drills and daily use
-- Able to show measurable improvement in incident outcomes
-
-Additional requirements to reliably argue for a 13/13 rating:
-
-- A documented support matrix for supported operating systems, shell assumptions, tmux versions, and expected remote tooling
-- A clear ownership model for who maintains the platform, reviews changes, and approves behavior-affecting releases
-- Adoption evidence showing that multiple engineers or teams use the repo repeatedly in real operational workflows
-- A published example incident evidence pack showing telemetry, bundle artifacts, timeline, and post-incident learning loop output
-- A standing review cadence for platform health, security posture, and roadmap execution rather than one-time implementation work
+1. **Shared incident record:** record source-attributed observations, hypotheses, decisions, owners, unknowns and verification.
+2. **Runnable procedures:** make escalation, investigation boundaries, artifact response and credential rotation steps explicit without handling secret values.
+3. **Handoff-tested exercises:** have a responder who lacks private context take over using only the record and evidence.
+4. **Failure-path confidence:** test that the actual scripts and procedures behave clearly when dependencies are unavailable or evidence is incomplete.
+5. **Evidence of outcomes:** report exercise results and follow-up actions; make no production-impact claims without real, approved evidence.
 
 ## 30-60-90 Day Execution Plan
 
-### Days 1-30: Prove the risky paths
+### Days 1-30: Make the response transferable
 
 Primary objective:
 
-- Raise confidence in real operational behavior, not only static correctness
+- Define and exercise the shared incident record and handoff model
 
 Deliverables:
 
-1. Expand integration fixtures to cover `ssh`, `vault`, and `tiller` command simulation.
-2. Add failure-path tests for the highest-risk scripts and dispatcher flows.
-3. Split CI into clearer stages so integration failures are isolated and visible.
-4. Define a lightweight release checklist that includes SBOM verification and changelog hygiene.
+1. Publish the incident evidence and handoff template.
+2. Add a synthetic supply-chain scenario with distinct upstream-source and internal-artifact evidence.
+3. Run a handoff exercise in which a previously unbriefed responder takes over from the written record.
+4. Record ambiguous authority, missing information and unsafe or unavailable procedure steps as follow-up actions.
 
 Success metrics:
 
-- Integration coverage exists for at least three high-risk workflows.
-- CI distinguishes unit, integration, and shell quality failures.
-- No undocumented behavior-changing merge lands without changelog coverage.
+- The incoming responder can state impact, verified findings, unknowns, next owner and stop conditions without private coaching.
+- Decisions and actions have explicit owners and authorization requirements.
+- Exercise gaps are assigned owners rather than left as undocumented observations.
 
-### Days 31-60: Make the platform governable
+### Days 31-60: Make procedures executable
 
 Primary objective:
 
-- Turn current engineering choices into durable platform policy
+- Turn the exercise gaps into reviewable procedures and reliable diagnostic behavior
 
 Deliverables:
 
-1. Add ADR template and initial accepted ADRs for safe-by-default execution, telemetry contract, and compatibility strategy.
-2. Add release-time provenance design, including artifact signing approach and verification commands.
-3. Update README and CONTRIBUTING to link the design decisions and release governance path.
-4. Define compatibility expectations for script flags, dispatcher commands, and telemetry fields.
+1. Document local incident roles, approval paths and containment escalation without relying on rank or unwritten norms.
+2. Add reusable checklists for credential rotation, revocation and dependent-system validation, and for internal artifact response versus upstream blocking.
+3. Add failure-path tests for the diagnostic workflows used by the exercise.
+4. Keep release provenance and signing work as a separate trust objective, rather than a substitute for incident-response readiness.
 
 Success metrics:
 
-- ADR baseline exists and is referenced by contributor documentation.
-- Release process has a documented trust model from source to artifact.
-- Backward-compatibility expectations are explicit instead of implied.
+- A responder can follow each procedure without inventing steps during the exercise.
+- Credential and artifact actions have distinct completion and verification states.
+- Missing authority or integrations are surfaced as gaps, not reported as successful actions.
 
-### Days 61-90: Prove operational value
+### Days 61-90: Prove continuity and learn
 
 Primary objective:
 
-- Demonstrate that the platform improves incident handling in practice
+- Re-run the exercise with different responders and close the most important gaps
 
 Deliverables:
 
-1. Add a quarterly game-day checklist and runbook validation workflow.
-2. Publish at least one completed exercise summary with findings and follow-up actions.
-3. Capture example KPI trend outputs and a sample incident bundle artifact structure.
-4. Document before-and-after operational outcomes such as faster first diagnostic output, cleaner handoffs, or fewer unsafe ad hoc commands.
+1. Run a game day using the published procedures and synthetic evidence.
+2. Publish an anonymized exercise summary with gaps, owners and follow-up actions.
+3. Measure handoff completeness, unresolved evidence gaps and procedure blockers.
+4. Repeat with a different responder; report observed results without claiming unmeasured production improvements.
 
 Success metrics:
 
-- At least one game-day has been executed and documented.
-- KPI reporting is tied to a real operational review loop.
-- The repo can show evidence of improved incident transparency, safety, or speed.
+- A responder outside the original exercise can continue from the record.
+- Every high-priority gap has an owner and review date.
+- The team can distinguish exercise evidence from production adoption evidence.
 
 Recommended implementation order:
 
-1. Integration realism
-2. ADR baseline
-3. Release provenance and signing
-4. Game-day and runbook validation
-5. KPI outcome reporting and adoption evidence
+1. Shared incident record and handoff procedure
+2. Synthetic cross-team game day
+3. Close the failure-path and procedure gaps found in the exercise
+4. Measure repeatability and maintain the learning loop
+5. Continue release provenance and other platform-quality work as parallel objectives
 
 Recently implemented:
 
@@ -117,8 +91,8 @@ Recently implemented:
 - Incident bundle packager (`scripts/incident_bundle.sh`) to archive artifacts, metadata, and KPI reports for postmortems.
 - KPI baseline/candidate comparison utility (`scripts/kpi_compare.sh`) for measurable before/after deltas.
 - Artifactory package-resolution and 502 triage scripts now emit optional telemetry (`PS_METRICS=1`) for KPI evidence capture.
-- CI release-trust additions: SHA256 manifests for SBOM and KPI evidence artifacts.
-- Adoption evidence template (`docs/INCIDENT_EVIDENCE_TEMPLATE.md`) for repeatable post-incident measurement.
+- KPI publishing workflow emits a SHA256 manifest for its KPI output artifacts.
+- Tooling outcome template (`docs/procedures/TOOLING_OUTCOME_TEMPLATE.md`) for repeatable exercise and adoption measurement.
 
 ## Priority 1: Integration Test Realism
 
@@ -182,10 +156,10 @@ Definition of done:
 
 Status:
 
-- COMPLETE: Key GitHub Actions pinned to commit SHAs.
+- PARTIAL: Actions in `kpi-publish.yml` are pinned to commit SHAs; `ci.yml` and `publish-container.yml` still use version tags.
 - COMPLETE: `dependency-audit` CI job added (`pip-audit` on every push).
-- COMPLETE: SBOM generation and artifact upload added.
-- Remaining: signed provenance attestation and release-time artifact signing (requires repository eligibility/workflow updates).
+- COMPLETE: Container image signing and SBOM attachment are configured in `.github/workflows/publish-container.yml`.
+- Remaining: signed build-provenance attestation; it is distinct from signing the image or attaching an SBOM.
 
 ### Feature: Stronger build integrity controls
 
@@ -195,24 +169,24 @@ Goal:
 
 Implementation steps:
 
-1. Pin third-party GitHub Actions to commit SHAs in `.github/workflows/ci.yml`.
+1. Pin third-party GitHub Actions to commit SHAs across all workflows.
 2. Add dependency vulnerability scan step (for Python dev dependencies and shell tooling references).
 3. Add SBOM generation for release artifacts.
-4. Add signed-release process notes in release policy.
-5. Add a `.github/workflows/release.yml` that triggers on tag push, builds and attaches the signed SBOM to the GitHub release, and runs `gh attestation verify` as a post-release smoke check.
+4. Keep release-policy instructions aligned with the actual publishing workflow.
+5. If repository eligibility and a concrete need are established, add a build-provenance attestation workflow and document how consumers verify it.
 
 Definition of done:
 
-- CI uses pinned action SHAs.
-- Dependency and SBOM generation are part of merge or release flow.
-- Release workflow attaches attested SBOM to the GitHub release page, verifiable via `gh attestation verify <artifact> --repo <owner>/<repo>`.
+- All third-party action references use immutable commit SHAs.
+- Published container images are signed and have an attached SBOM.
+- Any future build-provenance attestation is independently verifiable and described accurately in release documentation.
 
 ## Priority 4: Architecture Decision Records
 
 Status:
 
-- COMPLETE: `docs/adr/` added with ADR template and accepted baseline decisions for safety, telemetry, and compatibility.
-- COMPLETE: ADR index linked from README and CONTRIBUTING.
+- COMPLETE: `docs/adr/` contains accepted decisions for safe-by-default execution, telemetry, SSH access, MCP diagnostics and GitOps.
+- REMAINING: compatibility and deprecation expectations are not yet captured in a dedicated ADR.
 
 ### Feature: ADR baseline for platform safety and compatibility
 
@@ -222,30 +196,26 @@ Goal:
 
 Implementation steps:
 
-1. Add `docs/adr/` directory with a lightweight ADR template (`docs/adr/000-template.md`).
-2. Create initial ADRs:
-   - `001-safe-by-default-execution.md`: documents the check-before-repair model and why it is the mandatory pattern.
-   - `002-telemetry-format-and-kpi-contract.md`: documents the `METRIC|...` line format, KPI targets, and stability guarantees.
-   - `003-compatibility-and-deprecation-strategy.md`: documents how script flags and command names are versioned and deprecated.
-3. Link ADR index from README under Documentation map and from CONTRIBUTING under design decisions.
+1. Add an accepted ADR for compatibility and deprecation expectations.
+2. Keep the ADR directory linked from contributor and project documentation.
 
 Definition of done:
 
-- ADR template exists.
-- At least three accepted ADRs are present and referenced by docs.
+- Compatibility and deprecation expectations are explicit.
+- Existing accepted decisions remain discoverable from the README.
 
 ## Priority 5: Operational Readiness Program
 
 Status:
 
-- PARTIAL: quarterly checklist doc added at `docs/GAME_DAY_CHECKLIST.md`.
+- PARTIAL: quarterly checklist doc added at `docs/procedures/GAME_DAY_CHECKLIST.md`.
 - Remaining: runbook validation script and at least one completed game-day evidence pack.
 
 ### Feature: Incident game-day and runbook validation
 
 Goal:
 
-- Prove that the platform actually improves incident outcomes over time.
+- Prove that another responder can continue an investigation from the published procedures and evidence.
 
 Implementation steps:
 
@@ -336,7 +306,7 @@ Definition of done:
 - New work enters through a repeatable intake path.
 - Releases behave like product releases, not only code snapshots.
 
-## Priority 7: Operational Evidence And Trust Loop
+## Priority 8: Operational Evidence And Trust Loop
 
 ### Feature: Publish proof that the platform improves incident handling
 
