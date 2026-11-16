@@ -16,7 +16,7 @@ This project does not provide authorization, immutable evidence storage, or comp
 
 ## Default versus elevated capabilities
 
-The standard pod runs as UID 10001, disables privilege escalation, uses RuntimeDefault seccomp, drops all capabilities before adding the small capability set required for network and process diagnostics, and uses a read-only root filesystem. `/tmp` and `/tmp/incident-bundle` are the only writable locations.
+The standard pod runs as UID 10001, disables privilege escalation, uses RuntimeDefault seccomp, drops all Linux capabilities, and uses a read-only root filesystem. `/tmp` and `/tmp/incident-bundle` are the only writable locations. Packet capture and node/process inspection require the separately approved privileged overlay.
 
 `NET_ADMIN`, `NET_RAW`, and `SYS_PTRACE` are still meaningful privileges. They are retained in the default profile because the toolkit is intended to diagnose network and process failures, but the pod must not be treated as a low-trust workload. The privileged manifest adds host PID access, `SYS_ADMIN`, and a CRI socket only for an approved node-level investigation.
 

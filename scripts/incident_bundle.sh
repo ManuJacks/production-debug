@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -u
+set -euo pipefail
 
 # Incident artifact bundler
 #
@@ -113,12 +113,16 @@ try:
     res = sanitize_directory_tree('${bundle_dir}')
     print(f'Sanitization complete: {res}')
 except Exception as e:
-    pass
-" 2>/dev/null || true
+    print(f'Sanitization failed: {e}', file=sys.stderr)
+    raise
+" 2>/dev/null
+else
+  echo "python3 is required for bundle sanitization." >&2
+  exit 1
 fi
 
 # Fallback bash-level cleanup for high-risk files
-find "$payload_dir" -type f \( -name "*.pem" -o -name "*.key" -o -name "*id_rsa*" -o -name ".env*" -o -name "*kubeconfig*" \) -delete 2>/dev/null || true
+find "$payload_dir" -type f \( -name "*.pem" -o -name "*.key" -o -name "*id_rsa*" -o -name ".env*" -o -name "*kubeconfig*" \) -delete
 
 if [[ -d "$payload_dir" ]]; then
   bash "$script_dir/kpi_collect.sh" "$payload_dir" --format csv >"${reports_dir}/kpi.csv" || true

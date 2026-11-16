@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import tarfile
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,10 @@ from production_debug.sanitizer import SENSITIVE_FILENAME_PATTERNS, SENSITIVE_PA
 
 class BundleVerificationError(Exception):
     """Raised when an incident bundle fails integrity or safety checks."""
+
+
+MAX_ARCHIVE_FILES = 10_000
+MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 
 
 def compute_file_sha256(path: str | Path) -> str:
@@ -114,20 +119,47 @@ def verify_bundle_archive(
     if not archive.exists() or not archive.is_file():
         raise BundleVerificationError(f"Bundle archive file not found: {archive_path}")
 
-    target_dir = Path(extract_tmp_dir or f"/tmp/verify-{archive.stem}")
-    target_dir.mkdir(parents=True, exist_ok=True)
+    if extract_tmp_dir is None:
+        temp_context = tempfile.TemporaryDirectory(prefix="production-debug-verify-")
+        target_dir = Path(temp_context.name)
+    else:
+        target_dir = Path(extract_tmp_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        if any(target_dir.iterdir()):
+            raise BundleVerificationError("Extraction directory must be empty")
+        temp_context = None
 
-    with tarfile.open(archive, "r:gz") as tar:
-        # Defense against path traversal in tar extraction
-        for member in tar.getmembers():
-            if member.name.startswith("/") or ".." in member.name:
-                raise BundleVerificationError(
-                    f"Path traversal detected in archive entry: {member.name}"
-                )
-        tar.extractall(path=target_dir)
+    try:
+        with tarfile.open(archive, "r:gz") as tar:
+            members = tar.getmembers()
+            if len(members) > MAX_ARCHIVE_FILES:
+                raise BundleVerificationError("Archive contains too many entries")
+            total_size = 0
+            names: set[str] = set()
+            for member in members:
+                path = Path(member.name)
+                if (
+                    not member.name
+                    or path.is_absolute()
+                    or ".." in path.parts
+                    or member.name in names
+                    or member.issym()
+                    or member.islnk()
+                    or not (member.isfile() or member.isdir())
+                ):
+                    raise BundleVerificationError(f"Unsafe archive entry: {member.name}")
+                names.add(member.name)
+                if member.isfile():
+                    total_size += member.size
+                    if total_size > MAX_ARCHIVE_BYTES:
+                        raise BundleVerificationError(
+                            "Archive uncompressed payload exceeds 512 MiB"
+                        )
+            tar.extractall(path=target_dir)
 
-    # Locate extracted root
-    subdirs = [p for p in target_dir.iterdir() if p.is_dir()]
-    bundle_dir = subdirs[0] if subdirs else target_dir
-
-    return verify_bundle_safety(bundle_dir)
+        subdirs = [p for p in target_dir.iterdir() if p.is_dir()]
+        bundle_dir = subdirs[0] if len(subdirs) == 1 else target_dir
+        return verify_bundle_safety(bundle_dir)
+    finally:
+        if temp_context is not None:
+            temp_context.cleanup()

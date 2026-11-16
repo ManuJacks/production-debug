@@ -9,7 +9,7 @@
 
 ## Why Escalation Exists
 
-The default `production-debug` pod drops all Linux capabilities and runs as non-root UID 10001. This covers 90%+ of incident triage. A small number of tools require elevated capabilities that are not granted by default:
+The default `production-debug` pod drops all Linux capabilities and runs as non-root UID 10001. This covers the normal read-only triage path. A small number of tools require elevated capabilities that are available only through the separately approved privileged overlay:
 
 | Tool | Required Capability | Why |
 |---|---|---|

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import json
+import tarfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -34,6 +35,7 @@ from production_debug.bundle_verifier import (
     BundleVerificationError,
     compute_file_sha256,
     verify_bundle_safety,
+    verify_bundle_archive,
 )
 from production_debug.sanitizer import (
     is_sensitive_filename,
@@ -259,6 +261,32 @@ class TestIncidentBundleSafetyVerification:
         h2 = compute_file_sha256(test_file)
         assert h1 == h2
         assert len(h1) == 64
+
+    def test_archive_verifier_rejects_links_and_reused_directory(self, tmp_path: Path):
+        archive = tmp_path / "unsafe.tar.gz"
+        source = tmp_path / "source"
+        source.mkdir()
+        (source / "metadata.json").write_text('{"bundle_name":"unsafe"}')
+        (source / "secret-link").symlink_to("metadata.json")
+        with tarfile.open(archive, "w:gz") as tar:
+            tar.add(source, arcname="bundle")
+
+        with pytest.raises(BundleVerificationError, match="Unsafe archive entry"):
+            verify_bundle_archive(archive)
+
+    def test_archive_verifier_requires_empty_explicit_directory(self, tmp_path: Path):
+        archive = tmp_path / "safe.tar.gz"
+        source = tmp_path / "source"
+        source.mkdir()
+        (source / "metadata.json").write_text('{"bundle_name":"safe"}')
+        with tarfile.open(archive, "w:gz") as tar:
+            tar.add(source, arcname="bundle")
+        extraction = tmp_path / "extraction"
+        extraction.mkdir()
+        (extraction / "preexisting").write_text("must not be overwritten")
+
+        with pytest.raises(BundleVerificationError, match="must be empty"):
+            verify_bundle_archive(archive, extraction)
 
 
 class TestFailureHandlingAndTimeoutResilience:

@@ -44,11 +44,6 @@ spec:
         capabilities:
           drop:
             - ALL
-          add:
-            # Add capabilities essential for network packet inspection and socket tracing
-            - NET_ADMIN
-            - NET_RAW
-            - SYS_PTRACE
       resources:
         limits:
           cpu: "2"
