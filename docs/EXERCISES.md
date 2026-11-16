@@ -196,3 +196,47 @@ kubectl -n production-debug-lab describe pod -l app=imagepull-demo
 
 ### Exercise 8: RBAC Permission Denied
 - Use `kubectl auth can-i <verb> <resource> --as=system:serviceaccount:<namespace>:<sa>` to isolate least-privilege deficiencies.
+
+## Answer Keys: Exercises 2–8
+
+### Exercise 2 — ImagePullBackOff
+
+**Diagnosis:** Use pod events to distinguish `manifest unknown`/`not found` (bad image reference), `401`/`403` (registry authentication or authorization), and timeout/DNS errors (connectivity). Capture the image reference, latest `Failed` event, service-account pull secrets, and registry reachability without including credentials.
+
+**Remediation:** Correct the immutable image digest or attach the approved pull secret. Roll out the change and verify the pod becomes Ready. Prevent recurrence with CI image validation, signed digests, admission verification, and alerts on `ErrImagePull`.
+
+### Exercise 3 — Pending Pod
+
+**Diagnosis:** `kubectl describe pod` events identify the scheduler predicate: insufficient resources, unmatched selectors/affinity, untolerated taints, or no eligible nodes. Compare requests with node allocatable capacity, not current utilization alone.
+
+**Remediation:** Correct the placement rule, right-size the request, or add capacity. Do not remove taints or lower requests without confirming the isolation and capacity requirements. Prevent recurrence with admission checks, quotas, limit ranges, and capacity dashboards.
+
+### Exercise 4 — Readiness Probe Failure
+
+**Diagnosis:** `Running` describes process lifecycle; `Ready 0/1` means the readiness probe fails. Kubernetes removes the pod from Service endpoint slices while leaving the process running. Capture the probe configuration, events, logs, and the exact probe request from inside the pod.
+
+**Remediation:** Fix the application/probe contract, including path, port, bind address, and timing. Use a startup probe for slow initialization; do not weaken readiness merely to make the pod appear healthy. Test probes in CI and alert separately on process health and endpoint availability.
+
+### Exercise 5 — DNS Failure
+
+**Diagnosis:** Compare `/etc/resolv.conf`, `getent hosts`, and `dig`. An unreachable resolver points to pod networking or CoreDNS; CoreDNS answers with failed upstream lookups point to upstream configuration or node egress; a single failed name points to records, search domains, or split-horizon policy.
+
+**Remediation:** Restore CoreDNS, correct records/upstreams, or repair the policy/route blocking DNS. Capture the query, resolver configuration, CoreDNS health/logs, result, latency, and comparison from another namespace. Monitor CoreDNS errors and test representative namespaces.
+
+### Exercise 6 — NetworkPolicy Isolation
+
+**Diagnosis:** Establish source and destination identity, namespace, direction, port, and protocol. A policy selecting a pod denies traffic not explicitly allowed in that direction. Capture policies, labels, endpoints, route/DNS results, and a timestamped probe; use Hubble flow evidence when available.
+
+**Remediation:** Add the narrowest allow rule and verify both positive and negative cases. Do not resolve an application-specific outage by allowing all ingress or egress. Prevent recurrence with policy-as-code tests, review, and denied-flow monitoring.
+
+### Exercise 7 — OOMKilled versus Node Eviction
+
+**Diagnosis:** `OOMKilled` and exit code `137` usually indicate the container exceeded its cgroup limit. Node-pressure eviction is a kubelet decision shown in pod events and often affects multiple pods. Exit code alone is not proof. Capture container state, limits/requests, memory metrics, pod events, node conditions, and other node evictions.
+
+**Remediation:** Fix leaks or workload behavior and right-size limits for container OOM; recover node capacity and review requests, QoS, and eviction thresholds for node pressure. Alert on container OOM and node pressure separately.
+
+### Exercise 8 — RBAC Permission Denied
+
+**Diagnosis:** Confirm the exact identity, verb, resource, API group, and namespace. `kubectl auth can-i` distinguishes a missing permission from an incorrect resource or namespace. Capture the failed operation, sanitized authorization result, binding, and service account.
+
+**Remediation:** Add only the missing permission at the narrowest scope, bind it to the intended identity, and re-run the exact check. If cluster-wide visibility is needed, document the incident class and approval rather than silently broadening access. Prevent recurrence with RBAC CI tests, namespace-scoped defaults, and permission reviews.
