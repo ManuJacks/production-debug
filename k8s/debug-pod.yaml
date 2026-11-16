@@ -34,12 +34,13 @@ spec:
       type: RuntimeDefault
   containers:
     - name: debugger
-      image: ghcr.io/manujacks/production-debug:latest
-      imagePullPolicy: Always
+      # Pin releases in production; update through the Kustomize image override.
+      image: ghcr.io/manujacks/production-debug:0.1.0
+      imagePullPolicy: IfNotPresent
       command: ["/bin/bash", "-c", "sleep infinity"]
       securityContext:
         allowPrivilegeEscalation: false
-        readOnlyRootFilesystem: false
+        readOnlyRootFilesystem: true
         capabilities:
           drop:
             - ALL
@@ -58,6 +59,10 @@ spec:
       volumeMounts:
         - name: incident-output
           mountPath: /tmp/incident-bundle
+        - name: runtime-tmp
+          mountPath: /tmp
   volumes:
     - name: incident-output
+      emptyDir: {}
+    - name: runtime-tmp
       emptyDir: {}

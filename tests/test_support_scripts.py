@@ -42,6 +42,24 @@ def test_support_scripts_are_valid_bash() -> None:
         assert completed.returncode == 0, completed.stderr
 
 
+def test_debug_pod_security_contract_is_explicit() -> None:
+    manifest = (PROJECT_ROOT / "k8s" / "debug-pod.yaml").read_text(encoding="utf-8")
+    assert "readOnlyRootFilesystem: true" in manifest
+    assert "image: ghcr.io/manujacks/production-debug:latest" not in manifest
+    assert "mountPath: /tmp" in manifest
+    assert "mountPath: /tmp/incident-bundle" in manifest
+
+
+def test_privileged_pod_is_explicitly_separate() -> None:
+    manifest = (PROJECT_ROOT / "k8s" / "debug-pod-privileged.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "hostPID: true" in manifest
+    assert "SYS_ADMIN" in manifest
+    assert "readOnlyRootFilesystem: true" in manifest
+    assert "image: ghcr.io/manujacks/production-debug:latest" not in manifest
+
+
 def test_incident_preflight_local_only_succeeds() -> None:
     completed = run_script("incident_preflight.sh", "--local-only")
     assert completed.returncode == 0

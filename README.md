@@ -11,7 +11,7 @@
 
 The project demonstrates an engineering approach to operational tooling: explicit permissions, hardened runtime configuration, reproducible workflows, documented limitations and testable troubleshooting procedures.
 
-**Project documentation:** [Incident Readiness Roadmap](docs/roadmap/incident-response-resilience.md) · [Operating Model](docs/OPERATING_MODEL.md) · [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md) · [CLI Reference](docs/REFERENCE_CLI.md) · [Troubleshooting Exercises](docs/EXERCISES.md)
+**Project documentation:** [Incident Readiness Roadmap](docs/roadmap/incident-response-resilience.md) · [Operating Model](docs/OPERATING_MODEL.md) · [Engineering Decisions](docs/ENGINEERING_DECISIONS.md) · [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md) · [CLI Reference](docs/REFERENCE_CLI.md) · [Troubleshooting Exercises](docs/EXERCISES.md)
 
 ---
 

@@ -2,7 +2,7 @@
 
 This document provides detailed instructions and architectural context for the core components implemented in **`production-debug`**.
 
-For live incident operation, read [Operating Model](OPERATING_MODEL.md) first. It defines the firefighting roles, handoff minimum, stop conditions, evidence handling, and blameless review expectations.
+For live incident operation, read [Operating Model](OPERATING_MODEL.md) first. It defines the firefighting roles, handoff minimum, stop conditions, evidence handling, and blameless review expectations. For the security and operational tradeoffs behind this design, read [Engineering Decisions](ENGINEERING_DECISIONS.md).
 
 ---
 
@@ -75,6 +75,7 @@ securityContext:
   runAsNonRoot: true
   runAsUser: 10001
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
@@ -89,6 +90,9 @@ securityContext:
 kubectl apply -k k8s/
 kubectl exec -it -n debug-system pod/production-debug -- /bin/bash
 ```
+
+The pod's root filesystem is read-only. Writable runtime state is provided only
+through the dedicated `/tmp` and `/tmp/incident-bundle` `emptyDir` mounts.
 
 ---
 
