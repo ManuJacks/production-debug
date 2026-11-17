@@ -147,7 +147,9 @@ def verify_bundle_archive(
                     or member.islnk()
                     or not (member.isfile() or member.isdir())
                 ):
-                    raise BundleVerificationError(f"Unsafe archive entry: {member.name}")
+                    raise BundleVerificationError(
+                        f"Unsafe archive entry: {member.name}"
+                    )
                 names.add(member.name)
                 if member.isfile():
                     total_size += member.size
