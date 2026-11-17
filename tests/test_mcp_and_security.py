@@ -34,8 +34,8 @@ from mcp.server import (
 from production_debug.bundle_verifier import (
     BundleVerificationError,
     compute_file_sha256,
-    verify_bundle_safety,
     verify_bundle_archive,
+    verify_bundle_safety,
 )
 from production_debug.sanitizer import (
     is_sensitive_filename,
