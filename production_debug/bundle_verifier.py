@@ -148,7 +148,7 @@ def verify_bundle_archive(
                     or not (member.isfile() or member.isdir())
                 ):
                     raise BundleVerificationError(
-                            f"Unsafe archive entry: {member.name}"
+                        f"Unsafe archive entry: {member.name}"
                     )
                 names.add(member.name)
                 if member.isfile():
