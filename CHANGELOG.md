@@ -4,13 +4,12 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+- Removed vendored vim plugins (`docker/vim_runtime`, `docker/vim_pack`: awesome-vimrc, bash-support, perl-support, copilot.vim, copilot-chat.vim). The image keeps full `vim` with its default configuration. This reduces image attack surface and repository size.
 - Refactored `docker/Dockerfile` to a multi-stage build:
   - Stage 1 (`builder`): Compiles CPAN XS modules (`JSON::XS`, `Net::Pcap`, `Term::ReadLine::Gnu`, etc.) into `/opt/perl-vendor`, builds Python venvs (`/opt/mcp-venv`, `/opt/nettools-venv`), and downloads all static Go binaries (`kubectl`, `helm`, `k9s`, `stern`, `kubectx`, `kubens`, `kubectl-neat`, `kubectl-tree`, `crictl`, `etcdctl`, `etcdutl`, `grpcurl`, `curlie`).
   - Stage 2 (`final`): Lean runtime image copying only compiled vendor trees and static binaries, eliminating `gcc`, `make`, and `-dev` header packages to reduce attack surface and container footprint.
 - Added Perl toolchain: `perl`, `perl-doc`, `cpanminus` with full CPAN network-diagnostic module suite (`JSON::XS`, `LWP::UserAgent`, `LWP::Protocol::https`, `Net::DNS`, `Net::Ping`, `IO::Socket::SSL`, `Net::SNMP`, `Net::Pcap`, `Net::Whois::Raw`, `Term::ReadLine::Gnu`).
 - Added Python network diagnostic venv (`/opt/nettools-venv`): `orjson`, `requests`, `httpx`, `dnspython`, `icmplib`, `pyopenssl`, `cryptography`, `pysnmp`, `scapy`, `ipwhois`, `netaddr`, `paramiko` — documented in `mcp/requirements-nettools.txt` with inline purpose comments.
-- Installed `amix/vimrc` awesome-vimrc runtime (with `bash-support.vim` and `perl-support.vim` plugins) for `debuguser` via `install_awesome_parameterized.sh`.
-- Bundled `copilot.vim` and `copilot-chat.vim` plugins (via vim 8 native packages under `~/.vim/pack/`); `copilot-language-server` intentionally excluded (no Node in container — plugin loads silently, auth mountable later).
 - Added `.dockerignore` to exclude `.git` dirs, vim swap files, Python cache, and CI artifacts from build context.
 - Added build dependencies: `gcc`, `make`, `libssl-dev`, `libpcap-dev`, `libreadline-dev` (required for XS CPAN modules and Python native extensions).
 
