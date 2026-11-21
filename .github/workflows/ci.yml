@@ -103,7 +103,7 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: |
-          pip install pytest pytest-cov
+          pip install "pytest==8.4.2" "pytest-cov==6.2.1" "PyYAML==6.0.2"
       - name: Run test suite with reproducible JUnit & coverage reports
         run: |
           python3 -m pytest -v --junitxml=test-results.xml

@@ -31,7 +31,9 @@ fi
 NON_FUNCTIONAL_ONLY=1
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
-  if [[ "$file" =~ ^(README\.md|CONTRIBUTING\.md|LICENSE|\.github/|docs/|tests/|\.gitignore|CHANGELOG\.md)$ ]]; then
+  # Exact files, or any path under these directories.
+  if [[ "$file" =~ ^(README\.md|CONTRIBUTING\.md|LICENSE|\.gitignore|CHANGELOG\.md)$ ]] ||
+    [[ "$file" =~ ^(\.github|docs|tests)/ ]]; then
     continue
   fi
   NON_FUNCTIONAL_ONLY=0
