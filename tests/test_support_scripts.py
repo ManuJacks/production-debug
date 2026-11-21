@@ -146,6 +146,77 @@ def test_incident_bundle_creates_bundle_and_archive(tmp_path: Path) -> None:
     assert len(archives) == 1
 
 
+def test_incident_bundle_redacts_when_run_outside_repo(tmp_path: Path) -> None:
+    """Regression: sanitization must not depend on the caller's working directory."""
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    (artifact_dir / "app.log").write_text(
+        "connecting with password=hunter22secret\n"
+        "Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345\n",
+        encoding="utf-8",
+    )
+    (artifact_dir / "kubeconfig").write_text("users: []\n", encoding="utf-8")
+    out_dir = tmp_path / "out"
+
+    completed = subprocess.run(
+        [
+            "bash",
+            str(SCRIPTS_DIR / "incident_bundle.sh"),
+            str(out_dir),
+            str(artifact_dir),
+            "--name",
+            "cwd-test",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+    bundle_dirs = [p for p in out_dir.iterdir() if p.is_dir()]
+    assert len(bundle_dirs) == 1
+    contents = "".join(
+        p.read_text(encoding="utf-8") for p in bundle_dirs[0].rglob("*") if p.is_file()
+    )
+    assert "hunter22secret" not in contents
+    assert "abcdefghijklmnopqrstuvwxyz012345" not in contents
+    assert not list(bundle_dirs[0].rglob("kubeconfig"))
+
+    reports = list(out_dir.glob("cwd-test-*.verification.json"))
+    assert len(reports) == 1
+    assert json.loads(reports[0].read_text())["status"] == "verified"
+
+
+def test_incident_bundle_fails_closed_when_secret_survives(tmp_path: Path) -> None:
+    """A secret the sanitizer cannot rewrite must abort bundling and leave nothing behind."""
+    if os.geteuid() == 0:
+        import pytest
+
+        pytest.skip("root bypasses read-only file permissions")
+
+    artifact = tmp_path / "readonly.log"
+    artifact.write_text("password=hunter22secret\n", encoding="utf-8")
+    artifact.chmod(0o444)
+    out_dir = tmp_path / "out"
+
+    completed = run_script(
+        "incident_bundle.sh", str(out_dir), str(artifact), "--name", "fail-closed"
+    )
+
+    assert completed.returncode != 0
+    assert "partial bundle removed" in completed.stderr
+    assert list(out_dir.iterdir()) == []
+
+
+def test_incident_bundle_rejects_unsafe_name(tmp_path: Path) -> None:
+    completed = run_script(
+        "incident_bundle.sh", str(tmp_path), "--name", '../x"; rm -rf /'
+    )
+    assert completed.returncode == 2
+    assert not list(tmp_path.iterdir())
+
+
 def test_fw_host_probe_requires_valid_hosts_file() -> None:
     completed = run_script(
         "fw-host-probe-check.sh", "--hosts-file", "/nonexistent/hosts.txt"

@@ -182,8 +182,7 @@ LABEL org.opencontainers.image.title="production-debug" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="ManuJacks" \
       org.opencontainers.image.authors="ManuJacks" \
-      maintainer="ManuJacks <https://github.com/ManuJacks/production-debug>" \
-      security.standards="Staff/Principal SRE - Least-Privilege & Read-Only Diagnostics"
+      maintainer="ManuJacks <https://github.com/ManuJacks/production-debug>"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
@@ -299,7 +298,8 @@ RUN useradd -u 10001 -m -s /bin/bash debuguser && \
 # ---------------------------------------------------------------------------
 WORKDIR /app
 COPY mcp/ /app/mcp/
-RUN chown -R debuguser:debuguser /app
+COPY production_debug/ /app/production_debug/
+ENV PRODUCTION_DEBUG_HOME=/app
 
 # Bundled incident diagnostic scripts
 COPY scripts/ /usr/local/bin/

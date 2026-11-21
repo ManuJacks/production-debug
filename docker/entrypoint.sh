@@ -4,6 +4,11 @@
 # ==============================================================================
 set -euo pipefail
 
+# MCP stdio mode: stdout carries JSON-RPC, so start the server before any banner.
+if [ "${1:-}" = "mcp" ]; then
+    exec /opt/mcp-venv/bin/python /app/mcp/server.py
+fi
+
 cat << 'EOF'
   ___ ___ ___  ___  _   _  ___ _____ ___ ___  _  _       ___  ___ ___ _   _  ___ 
  | _ \ _ \   \| _ \| | | |/ __|_   _|_ _/ _ \| \| | ___ |   \| __| _ ) | | |/ __|
@@ -35,13 +40,9 @@ echo "Quick Commands:"
 echo "  • k8s-debug-tmux          : Launch 4-pane incident triage board"
 echo "  • incident_preflight.sh   : Run cluster & environment diagnostic scan"
 echo "  • remote_dns_tls_check.sh : Diagnose DNS latency and TLS handshake"
+echo "  • k8s_evidence.sh         : Collect read-only Kubernetes evidence"
 echo "  • incident_bundle.sh      : Generate sanitized evidence bundle"
 echo "  • python3 /app/mcp/server.py : Run MCP JSON-RPC server"
 echo "--------------------------------------------------------------------------------"
-
-# If first arg is 'mcp', run the MCP server directly
-if [ "${1:-}" = "mcp" ]; then
-    exec /opt/mcp-venv/bin/python /app/mcp/server.py
-fi
 
 exec "$@"

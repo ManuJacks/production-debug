@@ -10,7 +10,14 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from typing import Any
+
+try:
+    from production_debug.sanitizer import redact_text
+except ImportError:  # running as a script: make the repo/app root importable
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    from production_debug.sanitizer import redact_text
 
 # Domain name format: RFC 1035 label compliance
 SAFE_DOMAIN_REGEX = re.compile(
@@ -20,6 +27,15 @@ SAFE_DOMAIN_REGEX = re.compile(
 SAFE_IFACE_REGEX = re.compile(r"^[a-zA-Z0-9._-]{1,16}$")
 # Incident identifier format
 SAFE_INCIDENT_ID_REGEX = re.compile(r"^[a-zA-Z0-9._-]{1,64}$")
+# Kubernetes names: RFC 1123 label (namespace, container) and subdomain (pod)
+K8S_LABEL_REGEX = re.compile(r"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$")
+K8S_SUBDOMAIN_REGEX = re.compile(r"^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$")
+
+# The only kubectl verbs the MCP server may ever invoke. Enforced centrally in
+# _run_kubectl; mutation is additionally denied by the ServiceAccount's RBAC.
+KUBECTL_READ_ONLY_VERBS = frozenset({"get", "describe", "logs"})
+KUBECTL_TIMEOUT_SEC = 20
+MAX_TOOL_OUTPUT_CHARS = 64_000
 
 # Tool annotation definitions adhering to MCP spec requirements:
 # Explicit non-null booleans for readOnlyHint, destructiveHint, idempotentHint, openWorldHint.
@@ -54,6 +70,136 @@ INCIDENT_BUNDLE_ANNOTATIONS: dict[str, Any] = {
     "idempotentHint": False,
     "openWorldHint": False,
 }
+
+
+K8S_READ_ANNOTATIONS: dict[str, Any] = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": False,
+}
+
+
+class KubectlPolicyError(ValueError):
+    """Raised when a kubectl invocation would violate the read-only policy."""
+
+
+def _run_kubectl(args: list[str]) -> dict[str, Any]:
+    """Run a read-only kubectl command and return redacted, bounded output.
+
+    The verb allowlist is enforced here so that no tool can construct a
+    mutating command, even by mistake.
+    """
+    if not args or args[0] not in KUBECTL_READ_ONLY_VERBS:
+        raise KubectlPolicyError(f"kubectl verb not permitted: {args[:1]}")
+
+    kubectl = shutil.which("kubectl")
+    if not kubectl:
+        return {"status": "error", "error": "kubectl executable not found in PATH"}
+
+    # No --request-timeout: any config override makes client-go skip the
+    # in-cluster ServiceAccount config. The subprocess timeout bounds the call.
+    cmd = [kubectl]
+    context = os.environ.get("PRODUCTION_DEBUG_KUBE_CONTEXT")
+    if context:
+        cmd += ["--context", context]
+    cmd += args
+
+    try:
+        # One retry for transient API failures; authorization and not-found
+        # errors are definitive and returned immediately.
+        for attempt in (1, 2):
+            proc = subprocess.run(
+                cmd,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=KUBECTL_TIMEOUT_SEC,
+            )
+            if proc.returncode == 0 or re.search(
+                r"forbidden|notfound|not found", proc.stderr, re.IGNORECASE
+            ):
+                break
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "error",
+            "error": f"kubectl timed out after {KUBECTL_TIMEOUT_SEC}s",
+        }
+    except (subprocess.SubprocessError, OSError) as exc:
+        return {"status": "error", "error": str(exc)}
+
+    stdout = redact_text(proc.stdout)
+    truncated = len(stdout) > MAX_TOOL_OUTPUT_CHARS
+    result: dict[str, Any] = {
+        "status": "success" if proc.returncode == 0 else "failed",
+        "command": "kubectl " + " ".join(args),
+        "output": stdout[-MAX_TOOL_OUTPUT_CHARS:] if truncated else stdout,
+        "truncated": truncated,
+        "attempts": attempt,
+    }
+    if proc.returncode != 0:
+        result["error"] = redact_text(proc.stderr.strip())[:2000]
+    return result
+
+
+def _invalid(field: str) -> dict[str, Any]:
+    return {
+        "status": "error",
+        "error": f"Invalid {field}: must be a valid Kubernetes name.",
+    }
+
+
+def k8s_list_pods_impl(namespace: str) -> dict[str, Any]:
+    """List pods with status, restarts, node and IP."""
+    if not isinstance(namespace, str) or not K8S_LABEL_REGEX.match(namespace):
+        return _invalid("namespace")
+    return _run_kubectl(["get", "pods", "-n", namespace, "-o", "wide"])
+
+
+def k8s_get_events_impl(namespace: str) -> dict[str, Any]:
+    """List namespace events, oldest first."""
+    if not isinstance(namespace, str) or not K8S_LABEL_REGEX.match(namespace):
+        return _invalid("namespace")
+    return _run_kubectl(["get", "events", "-n", namespace, "--sort-by=.lastTimestamp"])
+
+
+def k8s_describe_pod_impl(namespace: str, pod: str) -> dict[str, Any]:
+    """Describe a single pod: container states, exit codes, probes, events."""
+    if not isinstance(namespace, str) or not K8S_LABEL_REGEX.match(namespace):
+        return _invalid("namespace")
+    if not isinstance(pod, str) or not K8S_SUBDOMAIN_REGEX.match(pod):
+        return _invalid("pod")
+    return _run_kubectl(["describe", "pod", pod, "-n", namespace])
+
+
+def k8s_get_pod_logs_impl(
+    namespace: str,
+    pod: str,
+    container: str | None = None,
+    previous: bool = False,
+    tail_lines: int = 200,
+) -> dict[str, Any]:
+    """Fetch recent logs for a pod, optionally from the previous container instance."""
+    if not isinstance(namespace, str) or not K8S_LABEL_REGEX.match(namespace):
+        return _invalid("namespace")
+    if not isinstance(pod, str) or not K8S_SUBDOMAIN_REGEX.match(pod):
+        return _invalid("pod")
+    if container is not None and (
+        not isinstance(container, str) or not K8S_LABEL_REGEX.match(container)
+    ):
+        return _invalid("container")
+    if not isinstance(previous, bool):
+        return {"status": "error", "error": "previous must be a boolean"}
+    try:
+        tail = max(1, min(int(tail_lines), 1000))
+    except (TypeError, ValueError):
+        return {"status": "error", "error": "tail_lines must be an integer"}
+
+    args = ["logs", pod, "-n", namespace, f"--tail={tail}", "--timestamps"]
+    args += ["-c", container] if container else ["--all-containers", "--prefix"]
+    if previous:
+        args.append("--previous")
+    return _run_kubectl(args)
 
 
 def run_dns_probe_impl(
@@ -342,9 +488,55 @@ def generate_incident_bundle(incident_id: str = "INCIDENT") -> dict[str, Any]:
     return generate_incident_bundle_impl(incident_id)
 
 
+@_decorator_source.tool(
+    name="k8s_list_pods",
+    description="Read-only: list pods in a namespace with status, restart count, node and IP.",
+    annotations={"title": "List Pods", **K8S_READ_ANNOTATIONS},
+)
+def k8s_list_pods(namespace: str) -> dict[str, Any]:
+    """List pods in a namespace (read-only)."""
+    return k8s_list_pods_impl(namespace)
+
+
+@_decorator_source.tool(
+    name="k8s_get_events",
+    description="Read-only: list events in a namespace, oldest first.",
+    annotations={"title": "Get Events", **K8S_READ_ANNOTATIONS},
+)
+def k8s_get_events(namespace: str) -> dict[str, Any]:
+    """List namespace events (read-only)."""
+    return k8s_get_events_impl(namespace)
+
+
+@_decorator_source.tool(
+    name="k8s_describe_pod",
+    description="Read-only: describe a pod, including container states, exit codes, probes and events.",
+    annotations={"title": "Describe Pod", **K8S_READ_ANNOTATIONS},
+)
+def k8s_describe_pod(namespace: str, pod: str) -> dict[str, Any]:
+    """Describe a pod (read-only)."""
+    return k8s_describe_pod_impl(namespace, pod)
+
+
+@_decorator_source.tool(
+    name="k8s_get_pod_logs",
+    description="Read-only: fetch recent pod logs; set previous=true for the last terminated container instance.",
+    annotations={"title": "Get Pod Logs", **K8S_READ_ANNOTATIONS},
+)
+def k8s_get_pod_logs(
+    namespace: str,
+    pod: str,
+    container: str | None = None,
+    previous: bool = False,
+    tail_lines: int = 200,
+) -> dict[str, Any]:
+    """Fetch pod logs (read-only)."""
+    return k8s_get_pod_logs_impl(namespace, pod, container, previous, tail_lines)
+
+
 def main():
     if mcp:
-        mcp.run()
+        mcp.run(show_banner=False)
     else:
         # Fallback JSON-RPC stdio loop if fastmcp is not installed
         import sys
@@ -370,6 +562,14 @@ def main():
                     res = capture_network_trace_summary_impl(**params)
                 elif method == "generate_incident_bundle":
                     res = generate_incident_bundle_impl(**params)
+                elif method == "k8s_list_pods":
+                    res = k8s_list_pods_impl(**params)
+                elif method == "k8s_get_events":
+                    res = k8s_get_events_impl(**params)
+                elif method == "k8s_describe_pod":
+                    res = k8s_describe_pod_impl(**params)
+                elif method == "k8s_get_pod_logs":
+                    res = k8s_get_pod_logs_impl(**params)
                 else:
                     res = {"error": f"Unknown method {method}"}
 
