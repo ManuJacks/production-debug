@@ -26,7 +26,7 @@ It provides an ephemeral, least-privilege diagnostic pod, a read-only evidence c
 | 7. Verify | Waits for rollout, then a 20 s stability window | All pods Ready with zero restarts |
 | 8. Clean up | Removes both namespaces; no cluster-scoped objects were created | Safe to run again; cleanup is idempotent |
 
-CI runs the whole sequence on a fresh kind cluster for every push and pull request (`e2e-incident-demo` job). It has also been run end to end on a five-node kubeadm cluster (three control planes, Cilium).
+CI runs the whole sequence on a fresh kind cluster for every push and pull request (`e2e-incident-demo` job). It has also been run end to end on a five-node kubeadm cluster (three control planes, Cilium), including [while the etcd leader was powered off](https://github.com/ManuJacks/kubernetes-in-finance/blob/main/docs/gameday/2026-11-21-api-availability.md). On that cluster it surfaced a real fault: see the [field report](docs/field-reports/2026-11-21-clock-drift.md).
 
 ### Run it
 
@@ -656,6 +656,7 @@ This project is an evolving engineering reference and diagnostic toolkit. Its cu
 ## Documentation
 
 - [Demonstration video script](docs/demo/VIDEO_SCRIPT.md)
+- [Field report: the demo surfaced a real cluster fault](docs/field-reports/2026-11-21-clock-drift.md)
 - [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md)
 - [Operating Model](docs/OPERATING_MODEL.md)
 - [CLI Reference](docs/REFERENCE_CLI.md)
