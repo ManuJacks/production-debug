@@ -121,7 +121,7 @@ cosign verify ghcr.io/manujacks/production-debug@<digest> \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-Pre-release `-rc` images were pushed manually for testing and are **not** signed. Build-provenance attestation is not implemented.
+This command was run with cosign v3.1.4 against the `latest` digest on 2026-11-21 and verified the signature, the transparency-log entry and the certificate chain. Pre-release `-rc` images were pushed manually for testing and are **not** signed. Build-provenance attestation is not implemented.
 
 ---
 
