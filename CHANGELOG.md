@@ -4,6 +4,8 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+- CI: fixed an invalid workflow (job-level `runner` context) that prevented every CI job from running; pinned all third-party actions to commit SHAs; added `actionlint`; pinned test dependencies (PyYAML was missing from the test job).
+- CI: the changelog policy now treats any path under `.github/`, `docs/` or `tests/` as non-functional (it previously matched only the bare directory names).
 - Added an end-to-end incident demonstration (`demo/run.sh`): crash-looping workload, ephemeral read-only diagnostic pod (namespace-scoped Role, Pod Security `restricted`, self-expiring), least-privilege proof, evidence collection, MCP investigation, operator remediation, recovery verification and idempotent cleanup. Runs in CI on kind.
 - Added `scripts/k8s_evidence.sh`: read-only Kubernetes evidence collector with a per-step `manifest.json`; continues on missing resources and API failures; bounded, recorded retries.
 - Added read-only Kubernetes MCP tools (`k8s_list_pods`, `k8s_get_events`, `k8s_describe_pod`, `k8s_get_pod_logs`) restricted to `get`/`describe`/`logs`.
