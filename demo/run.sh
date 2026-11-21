@@ -39,8 +39,8 @@ IMAGE="${DEMO_IMAGE:-ghcr.io/manujacks/production-debug:0.2.0}"
 OUTPUT="${DEMO_OUTPUT:-$ROOT_DIR/incident-output}"
 PYTHON="${DEMO_PYTHON:-$ROOT_DIR/demo/.venv/bin/python}"
 
-bold=$'\e[1m'; green=$'\e[32m'; red=$'\e[31m'; dim=$'\e[2m'; reset=$'\e[0m'
-[[ -t 1 ]] || { bold=""; green=""; red=""; dim=""; reset=""; }
+bold=$'\e[1m'; green=$'\e[32m'; red=$'\e[31m'; reset=$'\e[0m'
+[[ -t 1 ]] || { bold=""; green=""; red=""; reset=""; }
 
 step_start=0
 step() {
@@ -102,8 +102,9 @@ check_access() {
 run_demo() {
   local started=$SECONDS
   command -v kubectl >/dev/null || fail "kubectl not found"
-  [[ -x "$PYTHON" ]] && "$PYTHON" -c 'import mcp' 2>/dev/null ||
+  if ! { [[ -x "$PYTHON" ]] && "$PYTHON" -c 'import mcp' 2>/dev/null; }; then
     fail "MCP client not found: python3 -m venv demo/.venv && demo/.venv/bin/pip install -r demo/requirements.txt"
+  fi
 
   step "Target"
   require_target
@@ -196,9 +197,11 @@ PY
   local status
   status="$(k -n "$LAB_NS" get pods -l app=crashloop-demo \
     -o jsonpath='{range .items[*]}{.metadata.name} ready={.status.containerStatuses[0].ready} restarts={.status.containerStatuses[0].restartCount}{"\n"}{end}')"
-  sed 's/^/   /' <<<"$status"
-  grep -q 'ready=true restarts=0' <<<"$status" && ! grep -qv 'ready=true restarts=0' <<<"$status" ||
+  printf '%s\n' "$status" | sed 's/^/   /'
+  if ! grep -q 'ready=true restarts=0' <<<"$status" ||
+    grep -qv 'ready=true restarts=0' <<<"$status"; then
     fail "workload not stably recovered"
+  fi
   k -n "$LAB_NS" logs deployment/crashloop-demo | sed 's/^/   /'
   done_step "all pods ready with zero restarts after the stability window"
 

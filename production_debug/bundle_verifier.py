@@ -157,7 +157,8 @@ def verify_bundle_archive(
                         raise BundleVerificationError(
                             "Archive uncompressed payload exceeds 512 MiB"
                         )
-            tar.extractall(path=target_dir)
+            # Entries were screened above; the "data" filter is defense in depth.
+            tar.extractall(path=target_dir, filter="data")
 
         subdirs = [p for p in target_dir.iterdir() if p.is_dir()]
         bundle_dir = subdirs[0] if len(subdirs) == 1 else target_dir

@@ -10,4 +10,4 @@ resources:
 
 images:
   - name: ghcr.io/manujacks/production-debug
-    newTag: 0.1.0
+    newTag: 0.2.0

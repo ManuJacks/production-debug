@@ -35,7 +35,7 @@ spec:
   containers:
     - name: debugger
       # Pin releases in production; update through the Kustomize image override.
-      image: ghcr.io/manujacks/production-debug:0.1.0
+      image: ghcr.io/manujacks/production-debug:0.2.0
       imagePullPolicy: IfNotPresent
       command: ["/bin/bash", "-c", "sleep infinity"]
       securityContext:
