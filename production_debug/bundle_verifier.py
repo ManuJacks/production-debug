@@ -157,7 +157,8 @@ def verify_bundle_archive(
                         raise BundleVerificationError(
                             "Archive uncompressed payload exceeds 512 MiB"
                         )
-            tar.extractall(path=target_dir)
+            # Entries were screened above; the "data" filter is defense in depth.
+            tar.extractall(path=target_dir, filter="data")
 
         subdirs = [p for p in target_dir.iterdir() if p.is_dir()]
         bundle_dir = subdirs[0] if len(subdirs) == 1 else target_dir
@@ -165,3 +166,36 @@ def verify_bundle_archive(
     finally:
         if temp_context is not None:
             temp_context.cleanup()
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Verify a bundle directory or .tar.gz archive; print a JSON report.
+
+    Exit status: 0 verified, 1 verification failed, 2 usage error.
+    """
+    import sys
+
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) != 1:
+        print(
+            "usage: python3 -m production_debug.bundle_verifier <bundle_dir|bundle.tar.gz>",
+            file=sys.stderr,
+        )
+        return 2
+
+    target = Path(args[0])
+    try:
+        if target.is_dir():
+            report = verify_bundle_safety(target)
+        else:
+            report = verify_bundle_archive(target)
+    except BundleVerificationError as exc:
+        print(json.dumps({"status": "rejected", "error": str(exc)}, indent=2))
+        return 1
+
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

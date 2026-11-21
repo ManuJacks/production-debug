@@ -1,73 +1,144 @@
 # production-debug
 
 [![CI](https://github.com/ManuJacks/production-debug/actions/workflows/ci.yml/badge.svg)](https://github.com/ManuJacks/production-debug/actions/workflows/ci.yml)
-[![M8ven Score](https://m8ven.ai/badge/mcp/manujacks-production-debug-1mpz9n?v=793a11d93008fd43e53ff7b0b4b9244c)](https://m8ven.ai/mcp/manujacks-production-debug-1mpz9n?s=readme)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-incident%20diagnostics-326CE5?logo=kubernetes&logoColor=white)](k8s/)
 
-**Evidence-led incident diagnostics for Kubernetes, Azure and Linux infrastructure—designed to make investigations easier to share and hand off.**
+**How do you debug production without making production worse?**
 
-`production-debug` helps responders investigate incidents without relying on one person to hold the whole picture. It provides repeatable diagnostic workflows, shared evidence capture and handoff practices across Kubernetes, networking, Azure and Linux. A synthetic supply-chain incident is one demanding use case, not the limit of the project.
+`production-debug` is a Kubernetes incident-diagnostics toolkit built around one constraint: the people and tools investigating an incident should be *able* to read what they need, and *unable* to change anything. That includes AI assistants.
 
-The project demonstrates an engineering approach to operational tooling: explicit permissions, hardened runtime configuration, reproducible workflows, documented limitations and testable troubleshooting procedures.
-
-**Project documentation:** [Incident Readiness Roadmap](docs/roadmap/incident-response-resilience.md) · [Operating Model](docs/OPERATING_MODEL.md) · [Engineering Decisions](docs/ENGINEERING_DECISIONS.md) · [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md) · [CLI Reference](docs/REFERENCE_CLI.md) · [Troubleshooting Exercises](docs/EXERCISES.md)
+It provides an ephemeral, least-privilege diagnostic pod, a read-only evidence collector, a sanitized and verifiable incident bundle, and an MCP server that lets an AI assistant investigate under the same read-only identity. Remediation stays with a human operator using separate credentials.
 
 ---
 
-## Why this project exists
+## See it work
 
-During a high-severity production incident, responders need to establish what is failing, where the fault lies and what evidence supports the diagnosis—and make that understanding usable by the rest of the response team.
+`demo/run.sh` reproduces a complete incident on a disposable cluster and checks every safety property as it goes. It stops at the first expectation that does not hold.
 
-That becomes difficult when:
+| Step | What happens | What it proves |
+|---|---|---|
+| 1. Break | Deploys a workload that crash-loops (`missing CONFIG_URL`) | A real, observable failure |
+| 2. Isolate | Starts a diagnostic pod in its own namespace | Pod Security `restricted`, non-root, read-only root filesystem, no capabilities, self-expires after 1 h |
+| 3. Prove | Runs 12 `kubectl auth can-i` checks and a live server-side-dry-run delete from inside the pod | Reads allowed in the incident namespace only; every write, `exec`, Secret, ConfigMap and cluster-scope request denied |
+| 4. Collect | Gathers pods, events, descriptions and logs *as the diagnostic identity* | Structured evidence with a per-step `manifest.json`, redacted, verified and archived; the archive is re-verified locally |
+| 5. Investigate | An MCP client (as an AI assistant would) queries the cluster through the MCP server running *inside the diagnostic pod* | The AI finds the root cause using only `get`/`describe`/`logs`; an out-of-scope request is Forbidden |
+| 6. Remediate | The operator applies the reviewed fix with operator credentials | The diagnostic identity never performs the change |
+| 7. Verify | Waits for rollout, then a 20 s stability window | All pods Ready with zero restarts |
+| 8. Clean up | Removes both namespaces; no cluster-scoped objects were created | Safe to run again; cleanup is idempotent |
 
-- Critical system context and incident history are concentrated in one or two people.
-- Responders cannot easily take over from a teammate using the available notes and evidence.
-- Diagnostic tools and commands differ between responders.
-- Network restrictions, DNS, routing and cloud identity introduce additional fault domains.
-- Engineers request excessive Kubernetes permissions simply to inspect workloads.
-- Interactive troubleshooting produces fragmented logs and incomplete handoffs.
-- Temporary diagnostic environments disappear before useful evidence is collected.
-- Incident timelines and operational metrics must be reconstructed manually.
+CI runs the whole sequence on a fresh kind cluster for every push and pull request (`e2e-incident-demo` job). It has also been run end to end on a five-node kubeadm cluster (three control planes, Cilium).
 
-`production-debug` addresses these challenges with a consistent diagnostic environment, repeatable procedures and evidence that can be reviewed and handed off.
+### Run it
 
-The objective is to reduce dependence on undocumented individual knowledge—not to automate incident command, assign organizational authority or replace engineering judgment. The deploying organization remains responsible for decision rights, approvals and remediation.
+Requirements: `kubectl`, Python 3.12, Docker (for a local image), and a **disposable** cluster where creating and deleting the `production-debug-lab` and `production-debug-diag` namespaces is acceptable.
 
-## Engineering principles
+```bash
+python3 -m venv demo/.venv && demo/.venv/bin/pip install -r demo/requirements.txt
 
-- **Read-only by default:** Kubernetes diagnostic permissions are explicitly defined and do not grant workload mutation privileges.
-- **Hardened execution:** The Kubernetes debug pod uses non-root execution, a read-only root filesystem, dropped Linux capabilities and runtime-default seccomp.
-- **Observable operations:** Interactive triage sessions capture terminal output for subsequent review.
-- **Evidence-oriented response:** Selected diagnostic artifacts can be packaged with timestamped metadata and KPI reports.
-- **Portable tooling:** The toolkit supports container-based execution, Kubernetes deployment and Linux VM workflows.
-- **Blameless learning:** Exercises and incident procedures focus on fault domains, contributing conditions, recovery verification and systemic improvements.
+# kind example: build the image locally and load it into the cluster
+docker build -f docker/Dockerfile -t production-debug:local .
+kind load docker-image production-debug:local
+
+DEMO_CONTEXT=kind-kind DEMO_IMAGE=production-debug:local demo/run.sh run
+```
+
+The script prints the target context and API server, then asks you to type `<context>/production-debug-lab` before changing anything. Remove everything at any time with `demo/run.sh cleanup`.
 
 ---
 
-## Architecture and components
+## Architecture
 
-The repository separates the runtime environment, deployment configuration, diagnostic scripts, synthetic scenarios and local practice environments.
+```mermaid
+flowchart LR
+  subgraph lab["production-debug-lab (incident namespace)"]
+    app["crashloop-demo<br/>Deployment"]
+  end
+
+  subgraph diag["production-debug-diag (Pod Security: restricted)"]
+    pod["incident-debug pod<br/>non-root · read-only rootfs<br/>no capabilities · expires in 1 h"]
+    ev["k8s_evidence.sh"]
+    mcp["MCP server<br/>get / describe / logs only"]
+    pod --- ev
+    pod --- mcp
+  end
+
+  sa["ServiceAccount incident-reader"]
+  role["Role in incident namespace<br/>get · list · watch<br/>pods, pods/log, events, workloads"]
+  api[("Kubernetes API")]
+
+  ai["AI assistant<br/>(MCP client)"] -- "stdio via kubectl exec" --> mcp
+  ev -- "read-only" --> api
+  mcp -- "read-only" --> api
+  pod -. "runs as" .-> sa
+  sa -. "bound by RoleBinding" .-> role
+  api --- app
+
+  ev --> bundle["incident bundle<br/>redact → verify → archive"]
+  bundle -- "kubectl cp" --> operator["operator"]
+  operator -- "reviewed fix<br/>(operator credentials)" --> api
+```
+
+Two independent controls stop the AI from changing the cluster:
+
+1. **Tool design.** The MCP server exposes four Kubernetes tools. All of them run through one function that refuses any `kubectl` verb other than `get`, `describe` and `logs`, and every argument is validated against Kubernetes naming rules before it reaches `kubectl`.
+2. **Identity.** The MCP server runs inside the diagnostic pod under a ServiceAccount that has no write permissions. Even a tool bug could not mutate anything.
+
+---
+
+## Security model
+
+Every row below is enforced in code and covered by a test or a demo check. Anything not in this table should be treated as unverified.
+
+| Property | Enforced by | Verified by |
+|---|---|---|
+| Diagnostic identity cannot write, `exec`, read Secrets/ConfigMaps or reach other namespaces | Namespace-scoped `Role` (`demo/manifests/diagnostics.yaml`) | Demo step 3 (12 `auth can-i` checks + live dry-run delete); `tests/test_demo_contract.py` |
+| Diagnostic pod runs non-root, read-only, with no capabilities | Pod spec + `restricted` Pod Security admission | Admission rejects a non-compliant pod (demo step 2); `tests/test_demo_contract.py` |
+| MCP tools can only run `get`/`describe`/`logs` | `_run_kubectl` allowlist in `mcp/server.py` | `tests/test_mcp_kubernetes.py` (19 mutating/interactive verbs refused) |
+| MCP arguments cannot inject flags or shell syntax | Kubernetes name validation before execution | `tests/test_mcp_kubernetes.py` |
+| MCP and evidence output is redacted and size-bounded | `production_debug/sanitizer.py` | `tests/test_mcp_and_security.py`, `tests/test_mcp_kubernetes.py` |
+| Evidence collector never requests Secrets or ConfigMap data | Fixed command set in `scripts/k8s_evidence.sh` | `tests/test_k8s_evidence.py` |
+| Evidence collection survives missing resources and API failures | Per-step status, bounded retries recorded in `manifest.json` | `tests/test_k8s_evidence.py` |
+| A bundle that fails sanitization or verification is deleted, not shipped | Fail-closed `scripts/incident_bundle.sh` | `tests/test_support_scripts.py` (failure injection) |
+| Bundle archives with path traversal, absolute paths, links or oversized payloads are rejected | `production_debug/bundle_verifier.py` | `tests/test_mcp_and_security.py`, `tests/test_demo_contract.py` |
+| Scenario and demo scripts refuse to act without naming the exact target | Typed `<context>/<namespace>` confirmation | `tests/test_scenario_runner.py`, `tests/test_demo_contract.py` |
+
+### Limitations
+
+- **Redaction is pattern-based.** It catches recognized credential formats (JWTs, private keys, bearer tokens, common key/password assignments). Unrecognized secrets can remain. Review bundles before sharing them.
+- **Logs are evidence and may contain sensitive data.** `pods/log` access is required to diagnose most incidents.
+- **Bundles are verified, not tamper-proof.** The SHA-256 fingerprint detects accidental change; it is not a signature.
+- **The demo's Role is namespace-scoped.** The general-purpose manifests in `k8s/` and `gitops/` use a cluster-wide read-only ClusterRole that also covers nodes and ConfigMaps; review it before use.
+- **The privileged variant (`k8s/debug-pod-privileged.yaml`) is not part of the tested security model.** Its added capabilities are not effective for a non-root user without further configuration, and it has not been validated.
+- **Only the four Kubernetes MCP tools are covered by the read-only guarantee.** `generate_incident_bundle` writes local files and is annotated `readOnlyHint=false`; the DNS, Azure identity and packet-capture tools are outside the demo.
+
+### Supply chain
+
+The publish workflow builds multi-architecture images for pushes to `main` and version tags, signs them keylessly with cosign (GitHub OIDC), and attaches a CycloneDX SBOM. Signature (`.sig`) and SBOM (`.sbom`) artifacts are visible next to each published digest in GHCR. To verify an image yourself:
+
+```bash
+cosign verify ghcr.io/manujacks/production-debug@<digest> \
+  --certificate-identity-regexp 'https://github.com/ManuJacks/production-debug/.github/workflows/publish-container.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+This command was run with cosign v3.1.4 against the `latest` digest on 2026-11-21 and verified the signature, the transparency-log entry and the certificate chain. Pre-release `-rc` images were pushed manually for testing and are **not** signed. Build-provenance attestation is not implemented.
+
+---
+
+## Toolkit components
 
 ```text
 production-debug/
-├── docker/                 # Container image and non-root runtime setup
-├── k8s/                    # Kubernetes deployment manifests
-├── gitops/                 # Kustomize and GitOps deployment configuration
-├── vm/                     # Containerized and standalone VM launchers
-├── scripts/                # Diagnostic and incident-response tooling
-│   ├── incident_bundle.sh
-│   ├── incident_preflight.sh
-│   ├── launch-tmux-triage.sh
-│   ├── remote_dns_tls_check.sh
-│   ├── nsg-egress-validate.sh
-│   └── kpi_report.sh
-├── mcp/                    # MCP server component
-├── profiles/               # Repeatable triage profiles
+├── demo/                   # End-to-end incident demonstration
+├── docker/                 # Diagnostic container image (non-root)
+├── mcp/                    # MCP server (read-only Kubernetes tools + diagnostics)
+├── production_debug/       # Sanitizer and bundle verifier
+├── scripts/                # Evidence collection, bundling, preflight, KPI tooling
 ├── scenarios/              # Synthetic Kubernetes failure manifests
+├── k8s/  gitops/           # General-purpose deployment manifests (Kustomize / Flux)
+├── vm/  dev-lab/           # VM launchers and local practice environments
 ├── tests/                  # Automated tests
-├── docs/                   # Architecture, security and operating guides
-└── dev-lab/                # Minikube and Multipass practice environments
+└── docs/                   # ADRs, procedures, exercises
 ```
 
 ### Diagnostic runtime
@@ -89,78 +160,6 @@ The container packages a collection of infrastructure troubleshooting tools, inc
 
 The image is built from Debian Bookworm Slim. Kubernetes tooling versions are explicitly declared in the Dockerfile, and the Helm archive is SHA-256 verified during installation.
 
-### Interactive triage workspace
-
-The tmux workflow brings multiple diagnostic views into one terminal session.
-
-Typical activities include:
-
-- Inspecting pod status, restart counts and recent events.
-- Streaming application logs.
-- Checking DNS resolution and network connectivity.
-- Reviewing Azure Workload Identity configuration or metadata endpoint reachability.
-- Capturing terminal output for incident review.
-
-The workspace is intended to support collaborative investigation and structured handoffs.
-
-### Kubernetes deployment
-
-The Kubernetes deployment uses a dedicated ServiceAccount and explicitly defined RBAC permissions.
-
-The current ClusterRole grants cluster-wide `get`, `list` and `watch` access to selected diagnostic resources, including pods, logs, events, nodes, services, endpoints, ConfigMaps, workloads and network resources.
-
-This is read-only access, but it is still cluster-wide. Organizations should review the resource scope against their own isolation and access requirements before deployment.
-
-### GitOps and portability
-
-Kustomize manifests provide a declarative deployment path that can be reconciled through Flux v2.
-
-The project also provides VM launchers for container-based and standalone Linux troubleshooting environments.
-
-These deployment paths share the diagnostic tooling while retaining their respective runtime and access-control requirements.
-
----
-
-## Security architecture
-
-Security is part of the runtime design rather than an afterthought.
-
-### Kubernetes runtime controls
-
-The debug pod manifest configures:
-
-| Control | Configuration |
-|---|---|
-| User identity | Non-root UID/GID 10001 |
-| Privilege escalation | Disabled |
-| Linux capabilities | All dropped |
-| Seccomp | RuntimeDefault |
-| Root filesystem | Read-only |
-| Temporary storage | Dedicated `emptyDir` volumes |
-| Resource management | CPU and memory requests and limits |
-| ServiceAccount | Dedicated diagnostic identity |
-
-The Kubernetes ServiceAccount token is mounted because the toolkit needs to communicate with the Kubernetes API. Its associated permissions should therefore be treated as security-sensitive.
-
-### Credential and evidence handling
-
-The incident bundle script packages selected diagnostic artifacts, metadata and KPI reports. It attempts best-effort redaction of recognized secret patterns and removes certain sensitive filenames.
-
-**Important limitation:** Redaction is not comprehensive or guaranteed, and sanitization can fail without preventing bundle creation. Unrecognized secrets and other sensitive information may remain. Review and sanitize every bundle before sharing it.
-
-Session logs capture terminal output but are not tamper-proof or guaranteed append-only. Protect them using appropriate filesystem permissions, retention policies and external evidence-storage controls.
-
-### Security boundaries
-
-The toolkit does not independently guarantee:
-
-- Correct authorization in every target environment.
-- Azure identity authentication merely because identity configuration is detected.
-- Network connectivity through restrictive firewalls or NetworkPolicies.
-- Comprehensive sanitization of incident evidence.
-- Tamper-proof or immutable evidence storage.
-
-These remain responsibilities of the deploying organization and incident responders.
 
 ---
 
@@ -577,10 +576,16 @@ Validate shell syntax:
 bash -n scenarios/run.sh
 ```
 
-Run ShellCheck where installed:
+Run ShellCheck where installed (the same set CI checks):
 
 ```bash
-shellcheck scripts/*.sh scenarios/run.sh
+shellcheck scripts/*.sh vm/*.sh dev-lab/*.sh demo/*.sh scenarios/run.sh
+```
+
+Run the end-to-end incident demonstration against a disposable cluster (see [See it work](#see-it-work)):
+
+```bash
+DEMO_CONTEXT=<context> DEMO_IMAGE=<image> demo/run.sh run
 ```
 
 Check patch whitespace:
@@ -630,7 +635,7 @@ The toolkit supports incident command and driver/navigator/scribe collaboration,
 
 This project is an evolving engineering reference and diagnostic toolkit. Its current boundaries are explicit:
 
-- Kubernetes RBAC is read-only but cluster-wide in the supplied deployment.
+- The general-purpose deployment in `k8s/` and `gitops/` uses read-only but cluster-wide RBAC. The demo's diagnostic identity is namespace-scoped; see [Security model](#security-model).
 - Bundle redaction is best-effort and does not replace manual review.
 - Session logs are not immutable or tamper-proof.
 - Azure identity configuration detection does not prove successful authentication.
@@ -638,12 +643,19 @@ This project is an evolving engineering reference and diagnostic toolkit. Its cu
 - Network diagnostics depend on the capabilities and policies of the target environment.
 - The local Multipass environment does not represent independent physical infrastructure or production-grade high availability.
 
-Future development can extend scenario coverage, improve evidence integrity and retention, expand automated verification, and deepen observability and cloud identity diagnostics.
+**Roadmap (not implemented):**
+
+- A namespace-scoped variant of the general-purpose `k8s/` and `gitops/` deployment.
+- Signed incident bundles (today: SHA-256 fingerprint only).
+- Build-provenance attestation for published images.
+- Per-call audit logging for MCP tool invocations.
+- End-to-end coverage for scenarios beyond `01-crashloop`.
 
 ---
 
 ## Documentation
 
+- [Demonstration video script](docs/demo/VIDEO_SCRIPT.md)
 - [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md)
 - [Operating Model](docs/OPERATING_MODEL.md)
 - [CLI Reference](docs/REFERENCE_CLI.md)

@@ -115,3 +115,29 @@ def test_status_uses_explicit_context(fake_kubectl) -> None:
 
     assert completed.returncode == 0
     assert "--context minikube" in log_file.read_text(encoding="utf-8")
+
+
+def test_noninteractive_confirmation_must_name_exact_target(fake_kubectl) -> None:
+    env, log_file = fake_kubectl
+    env["K8S_LAB_CONTEXT"] = "minikube"
+    env["K8S_LAB_CONFIRM"] = "minikube/some-other-namespace"
+
+    completed = run_runner("cleanup", env=env)
+
+    assert completed.returncode == 1
+    assert "confirmation failed; no changes made" in completed.stderr
+    assert "delete" not in log_file.read_text(encoding="utf-8")
+
+
+def test_noninteractive_confirmation_accepts_exact_target(fake_kubectl) -> None:
+    env, log_file = fake_kubectl
+    env["K8S_LAB_CONTEXT"] = "minikube"
+    env["K8S_LAB_CONFIRM"] = "minikube/production-debug-lab"
+
+    completed = run_runner("cleanup", env=env)
+
+    assert completed.returncode == 0
+    assert (
+        "--context minikube delete namespace production-debug-lab"
+        in log_file.read_text(encoding="utf-8")
+    )

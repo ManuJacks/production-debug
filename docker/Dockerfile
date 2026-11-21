@@ -182,8 +182,7 @@ LABEL org.opencontainers.image.title="production-debug" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="ManuJacks" \
       org.opencontainers.image.authors="ManuJacks" \
-      maintainer="ManuJacks <https://github.com/ManuJacks/production-debug>" \
-      security.standards="Staff/Principal SRE - Least-Privilege & Read-Only Diagnostics"
+      maintainer="ManuJacks <https://github.com/ManuJacks/production-debug>"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
@@ -288,29 +287,19 @@ COPY --from=builder /opt/nettools-venv /opt/nettools-venv
 ENV PATH="/opt/nettools-venv/bin:$PATH"
 
 # ---------------------------------------------------------------------------
-# Non-root debug user — must exist before vim installer writes ~/.vimrc
+# Non-root debug user
 # ---------------------------------------------------------------------------
 RUN useradd -u 10001 -m -s /bin/bash debuguser && \
     mkdir -p /tmp/incident-bundle && \
     chown -R debuguser:debuguser /tmp/incident-bundle
 
 # ---------------------------------------------------------------------------
-# vim: amix/vimrc awesome-vimrc runtime + copilot.vim + copilot-chat.vim
-# install_awesome_parameterized.sh writes /home/debuguser/.vimrc at build time.
-# copilot-language-server intentionally excluded (no Node); plugin loads
-# silently — auth mountable later via volume.
-# ---------------------------------------------------------------------------
-COPY --chown=10001:10001 docker/vim_runtime/ /opt/vim_runtime/
-COPY --chown=10001:10001 docker/vim_pack/ /home/debuguser/.vim/pack/
-RUN bash /opt/vim_runtime/install_awesome_parameterized.sh /opt/vim_runtime debuguser && \
-    chmod -R go-w /opt/vim_runtime /home/debuguser/.vim/pack/
-
-# ---------------------------------------------------------------------------
 # MCP server application
 # ---------------------------------------------------------------------------
 WORKDIR /app
 COPY mcp/ /app/mcp/
-RUN chown -R debuguser:debuguser /app
+COPY production_debug/ /app/production_debug/
+ENV PRODUCTION_DEBUG_HOME=/app
 
 # Bundled incident diagnostic scripts
 COPY scripts/ /usr/local/bin/

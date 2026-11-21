@@ -4,13 +4,20 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+- Added an end-to-end incident demonstration (`demo/run.sh`): crash-looping workload, ephemeral read-only diagnostic pod (namespace-scoped Role, Pod Security `restricted`, self-expiring), least-privilege proof, evidence collection, MCP investigation, operator remediation, recovery verification and idempotent cleanup. Runs in CI on kind.
+- Added `scripts/k8s_evidence.sh`: read-only Kubernetes evidence collector with a per-step `manifest.json`; continues on missing resources and API failures; bounded, recorded retries.
+- Added read-only Kubernetes MCP tools (`k8s_list_pods`, `k8s_get_events`, `k8s_describe_pod`, `k8s_get_pod_logs`) restricted to `get`/`describe`/`logs`.
+- Fixed: incident bundling now fails closed (no partial or unverified bundle remains) and no longer depends on the caller's working directory. Previously, sanitization silently failed outside the repository root and left unredacted content on disk.
+- Fixed: redaction now covers `token=`, Azure secret assignments and `Authorization: Bearer` headers.
+- Fixed: MCP stdio mode printed a banner on stdout, corrupting the JSON-RPC stream.
+- Fixed: Kubernetes manifests referenced image tag `0.1.0`, which was never published; they now reference `0.2.0`.
+- Pinned `fastmcp` to 4.2.4.
+- Removed vendored vim plugins (`docker/vim_runtime`, `docker/vim_pack`: awesome-vimrc, bash-support, perl-support, copilot.vim, copilot-chat.vim). The image keeps full `vim` with its default configuration. This reduces image attack surface and repository size.
 - Refactored `docker/Dockerfile` to a multi-stage build:
   - Stage 1 (`builder`): Compiles CPAN XS modules (`JSON::XS`, `Net::Pcap`, `Term::ReadLine::Gnu`, etc.) into `/opt/perl-vendor`, builds Python venvs (`/opt/mcp-venv`, `/opt/nettools-venv`), and downloads all static Go binaries (`kubectl`, `helm`, `k9s`, `stern`, `kubectx`, `kubens`, `kubectl-neat`, `kubectl-tree`, `crictl`, `etcdctl`, `etcdutl`, `grpcurl`, `curlie`).
   - Stage 2 (`final`): Lean runtime image copying only compiled vendor trees and static binaries, eliminating `gcc`, `make`, and `-dev` header packages to reduce attack surface and container footprint.
 - Added Perl toolchain: `perl`, `perl-doc`, `cpanminus` with full CPAN network-diagnostic module suite (`JSON::XS`, `LWP::UserAgent`, `LWP::Protocol::https`, `Net::DNS`, `Net::Ping`, `IO::Socket::SSL`, `Net::SNMP`, `Net::Pcap`, `Net::Whois::Raw`, `Term::ReadLine::Gnu`).
 - Added Python network diagnostic venv (`/opt/nettools-venv`): `orjson`, `requests`, `httpx`, `dnspython`, `icmplib`, `pyopenssl`, `cryptography`, `pysnmp`, `scapy`, `ipwhois`, `netaddr`, `paramiko` — documented in `mcp/requirements-nettools.txt` with inline purpose comments.
-- Installed `amix/vimrc` awesome-vimrc runtime (with `bash-support.vim` and `perl-support.vim` plugins) for `debuguser` via `install_awesome_parameterized.sh`.
-- Bundled `copilot.vim` and `copilot-chat.vim` plugins (via vim 8 native packages under `~/.vim/pack/`); `copilot-language-server` intentionally excluded (no Node in container — plugin loads silently, auth mountable later).
 - Added `.dockerignore` to exclude `.git` dirs, vim swap files, Python cache, and CI artifacts from build context.
 - Added build dependencies: `gcc`, `make`, `libssl-dev`, `libpcap-dev`, `libreadline-dev` (required for XS CPAN modules and Python native extensions).
 

@@ -25,7 +25,12 @@ confirm_context() {
   echo "Target context: $CONTEXT"
   echo "Target namespace: $NAMESPACE"
 
-  read -r -p "Type ${CONTEXT}/${NAMESPACE} to confirm: " confirmation
+  # Non-interactive use (demo, CI) must still name the exact target.
+  if [[ -n "${K8S_LAB_CONFIRM:-}" ]]; then
+    confirmation="$K8S_LAB_CONFIRM"
+  else
+    read -r -p "Type ${CONTEXT}/${NAMESPACE} to confirm: " confirmation
+  fi
 
   if [[ "$confirmation" != "${CONTEXT}/${NAMESPACE}" ]]; then
     echo "confirmation failed; no changes made" >&2

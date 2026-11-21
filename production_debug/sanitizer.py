@@ -30,6 +30,13 @@ SENSITIVE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
     ),
     (
+        "bearer_header",
+        re.compile(
+            r"\bbearer\s+(?!\[REDACTED)([a-zA-Z0-9_\-\.~+/]{12,}=*)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
         "api_key",
         re.compile(
             r"\b(?:api[_-]?key|secret[_-]?key|access[_-]?token|app[_-]?secret)\s*[:=]\s*['\"]?(?!\[REDACTED)([a-zA-Z0-9_\-\.]{8,})['\"]?",
@@ -71,7 +78,16 @@ _JWT_RE = re.compile(
     r"eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"
 )
 _BEARER_RE = re.compile(
-    r"(\b(?:bearer|authorization)\s*[:=]\s*['\"]?)(?!\[REDACTED)[a-zA-Z0-9_\-\.]{12,}(['\"]?)",
+    r"(\b(?:bearer|authorization|token)\s*[:=]\s*['\"]?)(?!\[REDACTED)[a-zA-Z0-9_\-\.]{12,}(['\"]?)",
+    re.IGNORECASE,
+)
+# HTTP header form: "Authorization: Bearer <token>"
+_BEARER_HEADER_RE = re.compile(
+    r"(\bbearer\s+)(?!\[REDACTED)[a-zA-Z0-9_\-\.~+/]{12,}=*",
+    re.IGNORECASE,
+)
+_AZURE_SECRET_RE = re.compile(
+    r"(\b(?:azure[_-]?(?:client[_-]?secret|tenant[_-]?secret|federated[_-]?token))\s*[:=]\s*['\"]?)(?!\[REDACTED)[a-zA-Z0-9_\-\.]{8,}(['\"]?)",
     re.IGNORECASE,
 )
 _API_KEY_RE = re.compile(
@@ -103,8 +119,12 @@ def redact_text(content: str) -> str:
     # Redact JWTs
     redacted = _JWT_RE.sub("[REDACTED:JWT_TOKEN]", redacted)
 
-    # Redact Bearer / Authorization headers
+    # Redact Bearer / Authorization headers and token assignments
+    redacted = _BEARER_HEADER_RE.sub(r"\1[REDACTED:TOKEN]", redacted)
     redacted = _BEARER_RE.sub(r"\1[REDACTED:TOKEN]\2", redacted)
+
+    # Redact Azure credential assignments
+    redacted = _AZURE_SECRET_RE.sub(r"\1[REDACTED:AZURE_SECRET]\2", redacted)
 
     # Redact generic api_key / secret assignments
     redacted = _API_KEY_RE.sub(r"\1[REDACTED:API_KEY]\2", redacted)

@@ -1,0 +1,27 @@
+# Remediation for 01-crashloop: supply the missing CONFIG_URL and start
+# only when it is present. Apply with operator credentials, not the
+# diagnostic identity (which is read-only by design).
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: crashloop-demo}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: crashloop-demo}}
+  template:
+    metadata: {labels: {app: crashloop-demo}}
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+          env:
+            - name: CONFIG_URL
+              value: "http://config.production-debug-lab.svc.cluster.local/app.json"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              if [ -z "$CONFIG_URL" ]; then echo "missing CONFIG_URL"; exit 1; fi
+              echo "config source: $CONFIG_URL"; touch /tmp/ready; exec sleep 3600
+          readinessProbe:
+            exec: {command: ["cat", "/tmp/ready"]}
+            periodSeconds: 2

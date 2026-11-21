@@ -15,8 +15,6 @@ downloads/
 eggs/
 .eggs/
 lib/
-!docker/vim_runtime/sources_non_forked/nerdtree/lib/
-!docker/vim_runtime/sources_non_forked/nerdtree/lib/**
 lib64/
 parts/
 sdist/
@@ -67,3 +65,6 @@ todo.txt
 # OS Generated
 .DS_Store
 Thumbs.db
+
+# Demo output (incident archives)
+incident-output/

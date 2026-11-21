@@ -1,0 +1,96 @@
+# Ephemeral, least-privilege diagnostic environment for the crashloop demo.
+#
+# - Separate namespace enforcing the Pod Security "restricted" profile.
+# - ServiceAccount bound by a namespace-scoped Role in the *incident*
+#   namespace only: get/list/watch on workload state, events and logs.
+#   No secrets, no configmaps, no exec, no write verbs, no cluster scope.
+# - Pod self-expires via activeDeadlineSeconds even if cleanup is missed.
+#
+# __IMAGE__ is substituted by demo/run.sh.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production-debug-diag
+  labels:
+    app.kubernetes.io/part-of: production-debug-demo
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: incident-reader
+  namespace: production-debug-diag
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: incident-reader
+  namespace: production-debug-lab
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: incident-reader
+  namespace: production-debug-lab
+subjects:
+  - kind: ServiceAccount
+    name: incident-reader
+    namespace: production-debug-diag
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: incident-reader
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: incident-debug
+  namespace: production-debug-diag
+  labels:
+    app.kubernetes.io/name: production-debug
+    app.kubernetes.io/component: incident-triage
+spec:
+  serviceAccountName: incident-reader
+  automountServiceAccountToken: true
+  restartPolicy: Never
+  activeDeadlineSeconds: 3600
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: debugger
+      image: __IMAGE__
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/bash", "-c", "sleep infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: "1", memory: 1Gi}
+      volumeMounts:
+        - {name: incident-output, mountPath: /tmp/incident-bundle}
+        - {name: tmp, mountPath: /tmp}
+  volumes:
+    - {name: incident-output, emptyDir: {}}
+    - {name: tmp, emptyDir: {}}

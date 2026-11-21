@@ -1,7 +1,3 @@
-# Exclude version-control metadata from vim plugin bundles
-docker/vim_runtime/.git
-docker/vim_pack/**/.git
-
 # Exclude vim swap/undo files
 **/*.swp
 **/*.swo
