@@ -5,7 +5,8 @@
 #   1. Break      deploy a workload that crash-loops (scenarios/01-crashloop)
 #   2. Isolate    launch an ephemeral, read-only diagnostic pod
 #   3. Prove      verify least privilege (allowed reads, denied writes)
-#   4. Collect    gather structured evidence inside the pod; sanitize, verify, archive
+#   4. Collect    gather structured evidence inside the pod; sanitize, verify, archive;
+#                 draft the incident record (Sev derived from impact x urgency)
 #   5. Investigate  AI-facing MCP server, running as the same read-only identity
 #   6. Remediate  operator applies the reviewed fix with operator credentials
 #   7. Verify     confirm recovery (rollout, readiness, no restarts over a window)
@@ -21,6 +22,9 @@
 #   DEMO_OUTPUT    local directory for the incident archive (default: ./incident-output)
 #   DEMO_KEEP=1    skip final cleanup (inspect resources afterwards)
 #   DEMO_PYTHON    python with the `mcp` SDK (default: demo/.venv/bin/python)
+#   DEMO_DETECTED_AT / DEMO_DETECTED_BY
+#                  optional alert time (ISO 8601 UTC) and alert name, recorded
+#                  as the first work note of the drafted incident record
 #
 # Only use a cluster where creating and deleting the production-debug-lab and
 # production-debug-diag namespaces is acceptable.
@@ -177,7 +181,21 @@ for e in r["manifest"]:
     if e["path"].endswith("manifest.json"):
         print(f"   evidence manifest: {e['path']}")
 PY
-  done_step "evidence collected under the diagnostic identity and verified locally"
+  # Open the incident record from the verified evidence (draft; never submitted).
+  # Severity is derived, not chosen: one internal service fully unavailable,
+  # no customer impact -> impact 3 x urgency 1 -> Sev 3 (SEVERITY_MATRIX.md).
+  local record
+  record="$OUTPUT/$(basename "$archive" .tar.gz).incident.md"
+  PYTHONPATH="$ROOT_DIR" python3 -m production_debug.incident_record "$OUTPUT/$(basename "$archive")" \
+    --impact 3 --urgency 1 --service crashloop-demo \
+    --short-description "crashloop-demo unavailable: container crash-looping" \
+    --impact-statement "crashloop-demo (internal) has no ready replicas. No customer-facing service or SLO is affected." \
+    --detected-at "${DEMO_DETECTED_AT:-}" --detected-by "${DEMO_DETECTED_BY:-}" \
+    >"$record" || fail "incident record could not be drafted"
+  info "incident: $(sed -n '1s/^# //p' "$record")"
+  info "priority: $(sed -n 's/^| Priority | \(.*\) |$/\1/p' "$record") (impact 3 - Low x urgency 1 - High)"
+  info "record  : $record"
+  done_step "evidence collected under the diagnostic identity, verified locally, incident record drafted"
 
   step "5. Investigate: MCP server as the read-only identity"
   "$PYTHON" "$ROOT_DIR/demo/mcp_investigate.py" --namespace "$LAB_NS" -- \

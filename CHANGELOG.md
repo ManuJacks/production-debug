@@ -4,6 +4,9 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+- Added `production_debug/incident_record.py`: drafts a ServiceNow-style incident (INC) record (Markdown, or JSON with `incident` table field names) from a verified evidence bundle. Fails closed on an unverified bundle; work notes are source-quoted facts in UTC order, re-redacted; never infers a root cause; priority derived from impact × urgency. Never submits to any system (ADR 007).
+- Demo step 4 now drafts the incident record at Sev 3 (impact 3 × urgency 1); optional `DEMO_DETECTED_AT` / `DEMO_DETECTED_BY` record the triggering alert as the first work note.
+- Added incident-management procedures: severity matrix, INC, Problem (post-incident review) and Change request templates, with worked PRB and CHG examples for the demo scenario.
 - CI: fixed an invalid workflow (job-level `runner` context) that prevented every CI job from running; pinned all third-party actions to commit SHAs; added `actionlint`; pinned test dependencies (PyYAML was missing from the test job).
 - CI: the changelog policy now treats any path under `.github/`, `docs/` or `tests/` as non-functional (it previously matched only the bare directory names).
 - Added an end-to-end incident demonstration (`demo/run.sh`): crash-looping workload, ephemeral read-only diagnostic pod (namespace-scoped Role, Pod Security `restricted`, self-expiring), least-privilege proof, evidence collection, MCP investigation, operator remediation, recovery verification and idempotent cleanup. Runs in CI on kind.

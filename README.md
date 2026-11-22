@@ -20,7 +20,7 @@ It provides an ephemeral, least-privilege diagnostic pod, a read-only evidence c
 | 1. Break | Deploys a workload that crash-loops (`missing CONFIG_URL`) | A real, observable failure |
 | 2. Isolate | Starts a diagnostic pod in its own namespace | Pod Security `restricted`, non-root, read-only root filesystem, no capabilities, self-expires after 1 h |
 | 3. Prove | Runs 12 `kubectl auth can-i` checks and a live server-side-dry-run delete from inside the pod | Reads allowed in the incident namespace only; every write, `exec`, Secret, ConfigMap and cluster-scope request denied |
-| 4. Collect | Gathers pods, events, descriptions and logs *as the diagnostic identity* | Structured evidence with a per-step `manifest.json`, redacted, verified and archived; the archive is re-verified locally |
+| 4. Collect | Gathers pods, events, descriptions and logs *as the diagnostic identity* | Structured evidence with a per-step `manifest.json`, redacted, verified and archived; the archive is re-verified locally, and an incident record (INC) is drafted from it at a derived severity |
 | 5. Investigate | An MCP client (as an AI assistant would) queries the cluster through the MCP server running *inside the diagnostic pod* | The AI finds the root cause using only `get`/`describe`/`logs`; an out-of-scope request is Forbidden |
 | 6. Remediate | The operator applies the reviewed fix with operator credentials | The diagnostic identity never performs the change |
 | 7. Verify | Waits for rollout, then a 20 s stability window | All pods Ready with zero restarts |
@@ -107,6 +107,7 @@ Every row below is enforced in code and covered by a test or a demo check. Anyth
 | Evidence collection survives missing resources and API failures | Per-step status, bounded retries recorded in `manifest.json` | `tests/test_k8s_evidence.py` |
 | A bundle that fails sanitization or verification is deleted, not shipped | Fail-closed `scripts/incident_bundle.sh` | `tests/test_support_scripts.py` (failure injection) |
 | Bundle archives with path traversal, absolute paths, links or oversized payloads are rejected | `production_debug/bundle_verifier.py` | `tests/test_mcp_and_security.py`, `tests/test_demo_contract.py` |
+| Incident records are drafted only from a verified bundle, contain only source-quoted facts (no inferred root cause), and derive severity from impact × urgency | `production_debug/incident_record.py` ([ADR 007](docs/adr/007-incident-records-from-verified-evidence.md)) | `tests/test_incident_record.py` |
 | Scenario and demo scripts refuse to act without naming the exact target | Typed `<context>/<namespace>` confirmation | `tests/test_scenario_runner.py`, `tests/test_demo_contract.py` |
 
 ### Limitations
@@ -563,6 +564,22 @@ The script creates a timestamped compressed archive containing selected inputs, 
 
 The bundle attempts best-effort redaction of recognized secret patterns and removes certain sensitive filenames, but sanitization is not comprehensive or guaranteed and may fail without preventing bundle creation. Review and sanitize every bundle before sharing. The archive is not tamper-proof.
 
+### Incident record (INC) draft
+
+Draft a ServiceNow-style incident record from a verified bundle:
+
+```bash
+python3 -m production_debug.incident_record /tmp/bundles/<bundle>.tar.gz \
+  --impact 3 --urgency 1 --service <service> \
+  --short-description "<service>: <symptom>" [--format json]
+```
+
+The archive is verified first; an unsafe bundle produces no record. Work
+notes are facts quoted from named evidence files, in UTC order; the tool
+never infers a root cause. Priority is derived from impact and urgency
+([severity matrix](docs/procedures/SEVERITY_MATRIX.md)). Nothing is
+submitted to ServiceNow or any other system.
+
 ### Operational metrics
 
 The project includes KPI reporting functionality intended to support incident-duration and MTTR analysis. Metrics are only as reliable as the timestamps and incident data supplied to the reporting workflow.
@@ -673,6 +690,9 @@ This project is an evolving engineering reference and diagnostic toolkit. Its cu
 - [Synthetic Proof and Evidence](docs/evidence/SYNTHETIC_PROOF.md)
 - [Game Day Checklist](docs/procedures/GAME_DAY_CHECKLIST.md)
 - [Incident Evidence Template](docs/procedures/INCIDENT_EVIDENCE_TEMPLATE.md)
+- [Severity Matrix](docs/procedures/SEVERITY_MATRIX.md)
+- [Incident Record (INC) Template](docs/procedures/INCIDENT_RECORD_TEMPLATE.md), [Problem Record and Post-Incident Review (PRB)](docs/procedures/PROBLEM_RECORD_TEMPLATE.md), [Change Request (CHG)](docs/procedures/CHANGE_REQUEST_TEMPLATE.md)
+- Worked examples for the demo: [PRB](docs/demo/records/PRB-example-crashloop-demo.md), [CHG](docs/demo/records/CHG-example-crashloop-demo.md)
 - [Tooling Outcome Template](docs/procedures/TOOLING_OUTCOME_TEMPLATE.md)
 - [Release Policy](docs/RELEASE_POLICY.md)
 - [Architecture Decision Records](docs/adr/)
