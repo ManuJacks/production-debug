@@ -28,6 +28,10 @@ from mcp.server import (
     check_azure_workload_identity_impl,
     generate_incident_bundle,
     generate_incident_bundle_impl,
+    k8s_describe_pod,
+    k8s_get_events,
+    k8s_get_pod_logs,
+    k8s_list_pods,
     run_dns_probe,
     run_dns_probe_impl,
 )
@@ -83,6 +87,10 @@ class TestMCPToolAnnotations:
             check_azure_workload_identity,
             capture_network_trace_summary,
             generate_incident_bundle,
+            k8s_list_pods,
+            k8s_get_events,
+            k8s_describe_pod,
+            k8s_get_pod_logs,
         ]
         required_keys = {
             "readOnlyHint",

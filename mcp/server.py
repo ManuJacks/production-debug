@@ -491,7 +491,13 @@ def generate_incident_bundle(incident_id: str = "INCIDENT") -> dict[str, Any]:
 @_decorator_source.tool(
     name="k8s_list_pods",
     description="Read-only: list pods in a namespace with status, restart count, node and IP.",
-    annotations={"title": "List Pods", **K8S_READ_ANNOTATIONS},
+    annotations={
+        "title": "List Pods",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
 )
 def k8s_list_pods(namespace: str) -> dict[str, Any]:
     """List pods in a namespace (read-only)."""
@@ -501,7 +507,13 @@ def k8s_list_pods(namespace: str) -> dict[str, Any]:
 @_decorator_source.tool(
     name="k8s_get_events",
     description="Read-only: list events in a namespace, oldest first.",
-    annotations={"title": "Get Events", **K8S_READ_ANNOTATIONS},
+    annotations={
+        "title": "Get Events",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
 )
 def k8s_get_events(namespace: str) -> dict[str, Any]:
     """List namespace events (read-only)."""
@@ -511,7 +523,13 @@ def k8s_get_events(namespace: str) -> dict[str, Any]:
 @_decorator_source.tool(
     name="k8s_describe_pod",
     description="Read-only: describe a pod, including container states, exit codes, probes and events.",
-    annotations={"title": "Describe Pod", **K8S_READ_ANNOTATIONS},
+    annotations={
+        "title": "Describe Pod",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
 )
 def k8s_describe_pod(namespace: str, pod: str) -> dict[str, Any]:
     """Describe a pod (read-only)."""
@@ -521,7 +539,13 @@ def k8s_describe_pod(namespace: str, pod: str) -> dict[str, Any]:
 @_decorator_source.tool(
     name="k8s_get_pod_logs",
     description="Read-only: fetch recent pod logs; set previous=true for the last terminated container instance.",
-    annotations={"title": "Get Pod Logs", **K8S_READ_ANNOTATIONS},
+    annotations={
+        "title": "Get Pod Logs",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
 )
 def k8s_get_pod_logs(
     namespace: str,

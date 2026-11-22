@@ -1,6 +1,7 @@
 # production-debug
 
 [![CI](https://github.com/ManuJacks/production-debug/actions/workflows/ci.yml/badge.svg)](https://github.com/ManuJacks/production-debug/actions/workflows/ci.yml)
+[![M8ven Verified](https://m8ven.ai/badge/mcp/manujacks-production-debug-1mpz9n?variant=verified)](https://m8ven.ai/mcp/manujacks-production-debug-1mpz9n?s=readme)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **How do you debug production without making production worse?**
