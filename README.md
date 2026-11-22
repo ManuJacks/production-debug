@@ -78,6 +78,15 @@ flowchart LR
   operator -- "reviewed fix<br/>(operator credentials)" --> api
 ```
 
+<details>
+<summary>📱 Click here if the diagram does not render on your mobile device</summary>
+
+<br/>
+
+![Architecture Diagram](docs/images/architecture.svg)
+
+</details>
+
 Two independent controls stop the AI from changing the cluster:
 
 1. **Tool design.** The MCP server exposes four Kubernetes tools. All of them run through one function that refuses any `kubectl` verb other than `get`, `describe` and `logs`, and every argument is validated against Kubernetes naming rules before it reaches `kubectl`.
