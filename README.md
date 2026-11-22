@@ -48,6 +48,11 @@ The script prints the target context and API server, then asks you to type `<con
 
 ## Architecture
 
+![Architecture Diagram](docs/images/architecture.svg)
+
+<details>
+<summary>View Mermaid Source</summary>
+
 ```mermaid
 flowchart LR
   subgraph lab["production-debug-lab (incident namespace)"]
@@ -77,13 +82,6 @@ flowchart LR
   bundle -- "kubectl cp" --> operator["operator"]
   operator -- "reviewed fix<br/>(operator credentials)" --> api
 ```
-
-<details>
-<summary>📱 Click here if the diagram does not render on your mobile device</summary>
-
-<br/>
-
-![Architecture Diagram](docs/images/architecture.svg)
 
 </details>
 
