@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import json
+import subprocess
 import tarfile
 from pathlib import Path
 from unittest.mock import patch
@@ -311,6 +312,40 @@ class TestFailureHandlingAndTimeoutResilience:
             res = capture_network_trace_summary_impl("eth0")
             assert res["status"] == "error"
             assert "tcpdump not found" in res["error"]
+
+    def test_network_trace_is_non_promiscuous_and_writes_nothing(self):
+        """readOnlyHint is only true if tcpdump leaves the interface unchanged."""
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            return subprocess.CompletedProcess(cmd, 0, stdout="p1\np2\n", stderr="")
+
+        with (
+            patch("shutil.which", return_value="/usr/sbin/tcpdump"),
+            patch("subprocess.run", side_effect=fake_run),
+        ):
+            res = capture_network_trace_summary_impl("eth0", duration_sec=5)
+        ((cmd, kwargs),) = calls
+        assert cmd[0] == "tcpdump"
+        assert "-p" in cmd, "without -p tcpdump enables promiscuous mode"
+        assert not {"-w", "-W", "-G"} & set(cmd), "captures must never be written"
+        assert kwargs["timeout"] == 5
+        assert res["status"] == "success" and res["partial"] is False
+        assert res["packet_count"] == 2
+
+    def test_network_trace_quiet_interface_returns_partial_capture(self):
+        def fake_run(cmd, **kwargs):
+            raise subprocess.TimeoutExpired(cmd, kwargs["timeout"], output=b"p1\n")
+
+        with (
+            patch("shutil.which", return_value="/usr/sbin/tcpdump"),
+            patch("subprocess.run", side_effect=fake_run),
+        ):
+            res = capture_network_trace_summary_impl("eth0", duration_sec=3)
+        assert res["status"] == "success"
+        assert res["partial"] is True
+        assert res["sample_packets"] == ["p1"]
 
     def test_azure_workload_identity_safe_fallback(self):
         with (

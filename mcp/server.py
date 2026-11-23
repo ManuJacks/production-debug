@@ -326,20 +326,38 @@ def capture_network_trace_summary_impl(
             "error": "tcpdump not found in PATH or insufficient capabilities (NET_ADMIN/NET_RAW required)",
         }
 
-    cmd = ["tcpdump", "-i", interface.strip(), "-c", "25", "-nn", "-q"]
+    # -p: never put the interface into promiscuous mode. Without it tcpdump
+    # changes the interface flags, so the tool would not be read-only.
+    # No -w: captures are summarised in memory, never written to disk.
+    cmd = ["tcpdump", "-p", "-i", interface.strip(), "-c", "25", "-nn", "-q"]
     try:
         proc = subprocess.run(
-            cmd, check=False, capture_output=True, text=True, timeout=duration + 2
+            cmd, check=False, capture_output=True, text=True, timeout=duration
         )
+        lines = proc.stdout.splitlines()
         return {
             "status": "success",
             "interface": interface.strip(),
-            "packet_count": len(proc.stdout.splitlines()),
-            "sample_packets": proc.stdout.splitlines()[:10],
+            "partial": False,
+            "packet_count": len(lines),
+            "sample_packets": lines[:10],
             "stderr": proc.stderr,
         }
-    except subprocess.TimeoutExpired:
-        return {"status": "timeout", "interface": interface.strip()}
+    except subprocess.TimeoutExpired as exc:
+        # A quiet interface may not reach 25 packets within the window: return
+        # what was observed instead of discarding it.
+        output = exc.stdout or ""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
+        lines = output.splitlines()
+        return {
+            "status": "success",
+            "interface": interface.strip(),
+            "partial": True,
+            "packet_count": len(lines),
+            "sample_packets": lines[:10],
+            "stderr": "",
+        }
     except (subprocess.SubprocessError, OSError) as exc:
         return {"status": "error", "error": str(exc)}
 
@@ -457,10 +475,11 @@ def check_azure_workload_identity() -> dict[str, Any]:
 @_decorator_source.tool(
     name="capture_network_trace_summary",
     description=(
-        "Read-only local packet observation using tcpdump; captures up to 25 "
-        "packet summaries for up to 30 seconds. It creates a transient "
-        "subprocess and capture socket but does not write files or modify "
-        "network configuration. Requires packet-capture capabilities."
+        "Read-only local packet observation using tcpdump in non-promiscuous "
+        "mode (-p); returns up to 25 packet summaries observed within "
+        "duration_sec (max 30 s). It runs a transient tcpdump subprocess with "
+        "a capture socket, but writes no files and does not change interface "
+        "or network configuration. Requires packet-capture capabilities."
     ),
     annotations={
         "title": "Network Trace Summary",
