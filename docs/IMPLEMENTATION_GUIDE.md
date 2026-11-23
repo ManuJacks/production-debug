@@ -13,7 +13,7 @@ For live incident operation, read [Operating Model](OPERATING_MODEL.md) first. I
 4. [Kubernetes Ephemeral Manifests & Security Boundary (`k8s/`)](#4-kubernetes-ephemeral-manifests--security-boundary-k8s)
 5. [Model Context Protocol (MCP) AI Diagnostic Server (`mcp/`)](#5-model-context-protocol-mcp-ai-diagnostic-server-mcp)
 6. [Testing & Quality Gates (`tests/`)](#6-testing--quality-gates-tests)
-7. [eBPF & Cilium Multipass Sandbox (Staff-Level Demo)](#7-ebpf--cilium-multipass-sandbox-staff-level-demo)
+7. [eBPF & Cilium Multipass Sandbox](#7-ebpf--cilium-multipass-sandbox)
 
 ---
 
@@ -103,7 +103,7 @@ The container includes a Model Context Protocol server exposing read-only tools 
 ### Available Tools:
 1. `run_dns_probe(domain, nameserver)`: Performs sanitized DNS inspection without risk of command injection.
 2. `check_azure_workload_identity()`: Audits Azure Workload Identity variables (`AZURE_CLIENT_ID`, `AZURE_FEDERATED_TOKEN_FILE`) and verifies 169.254.169.254 IMDS metadata without revealing token secrets.
-3. `capture_network_trace_summary(interface, duration_sec)`: Performs read-only local packet observation with `tcpdump`, returning at most 25 packet summaries for up to 30 seconds. It starts a transient subprocess and capture socket, but does not write files, change interface configuration, intentionally transmit packets, or modify Kubernetes/cloud resources. It requires `tcpdump` and packet-capture capabilities; the standard restricted pod may reject it because it drops all capabilities.
+3. `capture_network_trace_summary(interface, duration_sec)`: Performs read-only local packet observation with `tcpdump -p` (no promiscuous mode), returning at most 25 packet summaries observed within `duration_sec` (max 30 s; a quiet interface returns what was seen, marked `partial`). It starts a transient subprocess and capture socket, but does not write files, change interface configuration, intentionally transmit packets, or modify Kubernetes/cloud resources. It requires `tcpdump` and packet-capture capabilities; the standard restricted pod may reject it because it drops all capabilities.
 4. `generate_incident_bundle(incident_id)`: Calls the incident bundle script to create an archive. The script attempts best-effort redaction of recognized secret patterns and removes certain sensitive filenames; it does not guarantee complete sanitization or tamper-proof storage. Review the bundle before sharing.
 
 ### Starting MCP Server:
@@ -130,7 +130,7 @@ All 13 test suites validate:
 
 ---
 
-## 7. eBPF & Cilium Multipass Sandbox (Staff-Level Demo)
+## 7. eBPF & Cilium Multipass Sandbox
 
 To showcase advanced cloud-native networking troubleshooting:
 * **Multipass VM**: Ubuntu 24.04 with kernel 6.8+ eBPF support.

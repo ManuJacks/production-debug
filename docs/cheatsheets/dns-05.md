@@ -220,7 +220,7 @@ Note: The EndpointSlice output confirmed two registered endpoints. Their readine
 
 If the resolver responds with `NXDOMAIN`, I verify whether the requested record should exist before changing cluster DNS. A valid negative DNS response is different from a timeout or `SERVFAIL`. I work from the client outward and only change the layer supported by the evidence."
 
-## 10. Staff-level takeaway
+## 10. Key takeaway
 
 **A failed lookup does not automatically mean DNS infrastructure is broken.**
 

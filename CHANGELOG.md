@@ -4,6 +4,8 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+- Docs: removed self-descriptive "staff-level" labels from guides and cheatsheets; ADR 003 recorded as an unused number (it was never written).
+- Fixed: `capture_network_trace_summary` ran `tcpdump` without `-p`, so it switched the interface into promiscuous mode, contradicting its read-only annotation and documentation. It now captures in non-promiscuous mode, honours `duration_sec` as the capture window, and returns packets observed before the window ends (`partial: true`) instead of discarding them.
 - Added `production_debug/incident_record.py`: drafts a ServiceNow-style incident (INC) record (Markdown, or JSON with `incident` table field names) from a verified evidence bundle. Fails closed on an unverified bundle; work notes are source-quoted facts in UTC order, re-redacted; never infers a root cause; priority derived from impact × urgency. Never submits to any system (ADR 007).
 - Demo step 4 now drafts the incident record at Sev 3 (impact 3 × urgency 1); optional `DEMO_DETECTED_AT` / `DEMO_DETECTED_BY` record the triggering alert as the first work note.
 - Added incident-management procedures: severity matrix, INC, Problem (post-incident review) and Change request templates, with worked PRB and CHG examples for the demo scenario.
