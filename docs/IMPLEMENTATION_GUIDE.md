@@ -13,7 +13,7 @@ For live incident operation, read [Operating Model](OPERATING_MODEL.md) first. I
 4. [Kubernetes Ephemeral Manifests & Security Boundary (`k8s/`)](#4-kubernetes-ephemeral-manifests--security-boundary-k8s)
 5. [Model Context Protocol (MCP) AI Diagnostic Server (`mcp/`)](#5-model-context-protocol-mcp-ai-diagnostic-server-mcp)
 6. [Testing & Quality Gates (`tests/`)](#6-testing--quality-gates-tests)
-7. [eBPF & Cilium Multipass Sandbox (Staff-Level Demo)](#7-ebpf--cilium-multipass-sandbox-staff-level-demo)
+7. [eBPF & Cilium Multipass Sandbox](#7-ebpf--cilium-multipass-sandbox)
 
 ---
 
@@ -130,7 +130,7 @@ All 13 test suites validate:
 
 ---
 
-## 7. eBPF & Cilium Multipass Sandbox (Staff-Level Demo)
+## 7. eBPF & Cilium Multipass Sandbox
 
 To showcase advanced cloud-native networking troubleshooting:
 * **Multipass VM**: Ubuntu 24.04 with kernel 6.8+ eBPF support.

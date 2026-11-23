@@ -1,6 +1,6 @@
 # Multipass Incident Practice & Hands-On Triage Lab
 
-This hands-on guide walks you through practicing realistic incident triage drills inside an isolated Ubuntu Multipass VM using the Staff SRE toolkit.
+This hands-on guide walks you through practicing realistic incident triage drills inside an isolated Ubuntu Multipass VM using the production-debug toolkit.
 
 ---
 
@@ -45,7 +45,7 @@ What you will see in real time:
 
 ---
 
-### Drill B: Kubernetes Staff SRE Diagnostic Tools
+### Drill B: Kubernetes Diagnostic Tools
 To practice with a live cluster inside Multipass:
 ```bash
 # Optional: Install lightweight k3s or minikube in the VM:
