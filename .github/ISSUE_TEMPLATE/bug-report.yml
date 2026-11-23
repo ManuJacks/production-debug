@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible problem in a diagnostic, demo, or documentation path.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, customer data, unredacted incident output, or production access details.
+  - type: input
+    id: component
+    attributes:
+      label: Component
+      placeholder: MCP server, demo, Kubernetes manifest, script, documentation
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include the command, sanitized output, and smallest disposable environment that reproduces it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true

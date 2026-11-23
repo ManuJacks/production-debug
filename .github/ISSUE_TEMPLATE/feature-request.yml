@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a safe improvement or read-only diagnostic.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What responder or operator workflow is currently missing?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the interface, expected output, and failure behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and least privilege
+      description: Identify filesystem, network, process, capability, RBAC, and external-service effects.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: Describe tests or a disposable demo scenario that would verify it.
+    validations:
+      required: true
