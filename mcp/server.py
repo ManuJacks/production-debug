@@ -456,7 +456,12 @@ def check_azure_workload_identity() -> dict[str, Any]:
 
 @_decorator_source.tool(
     name="capture_network_trace_summary",
-    description="Collect packet sample and network trace statistics.",
+    description=(
+        "Read-only local packet observation using tcpdump; captures up to 25 "
+        "packet summaries for up to 30 seconds. It creates a transient "
+        "subprocess and capture socket but does not write files or modify "
+        "network configuration. Requires packet-capture capabilities."
+    ),
     annotations={
         "title": "Network Trace Summary",
         "readOnlyHint": True,
@@ -468,7 +473,7 @@ def check_azure_workload_identity() -> dict[str, Any]:
 def capture_network_trace_summary(
     interface: str = "eth0", duration_sec: int = 5
 ) -> dict[str, Any]:
-    """Collect packet sample and network trace statistics."""
+    """Read-only local packet observation with bounded tcpdump capture."""
     return capture_network_trace_summary_impl(interface, duration_sec)
 
 
