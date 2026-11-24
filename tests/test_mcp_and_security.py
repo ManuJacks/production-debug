@@ -70,7 +70,7 @@ class TestMCPToolAnnotations:
 
     def test_network_trace_annotations(self):
         ann = NETWORK_TRACE_ANNOTATIONS
-        assert ann["readOnlyHint"] is True
+        assert ann["readOnlyHint"] is False
         assert ann["destructiveHint"] is False
         assert ann["idempotentHint"] is False
         assert ann["openWorldHint"] is True

@@ -57,7 +57,10 @@ AZURE_IDENTITY_ANNOTATIONS: dict[str, Any] = {
 
 NETWORK_TRACE_ANNOTATIONS: dict[str, Any] = {
     "title": "Network Trace Summary",
-    "readOnlyHint": True,
+    # The observation itself is non-destructive, but the handler launches an
+    # external capture process.  Do not advertise it as read-only to clients
+    # or static scanners that treat process execution as a side effect.
+    "readOnlyHint": False,
     "destructiveHint": False,
     "idempotentHint": False,
     "openWorldHint": True,
@@ -475,15 +478,17 @@ def check_azure_workload_identity() -> dict[str, Any]:
 @_decorator_source.tool(
     name="capture_network_trace_summary",
     description=(
-        "Read-only local packet observation using tcpdump in non-promiscuous "
+        "Non-destructive local packet observation that launches tcpdump in "
+        "non-promiscuous "
         "mode (-p); returns up to 25 packet summaries observed within "
         "duration_sec (max 30 s). It runs a transient tcpdump subprocess with "
-        "a capture socket, but writes no files and does not change interface "
-        "or network configuration. Requires packet-capture capabilities."
+        "a capture socket. It writes no files, does not change interface or "
+        "network configuration, and does not intentionally transmit packets. "
+        "Requires packet-capture capabilities."
     ),
     annotations={
         "title": "Network Trace Summary",
-        "readOnlyHint": True,
+        "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": True,
