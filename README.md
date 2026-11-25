@@ -4,6 +4,8 @@
 [![M8ven Verified](https://m8ven.ai/badge/mcp/manujacks-production-debug-1mpz9n?variant=verified)](https://m8ven.ai/mcp/manujacks-production-debug-1mpz9n?s=readme)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+![Production-debug](docs/images/production-debug.png)
+
 **How do you debug production without making production worse?**
 
 `production-debug` is a Kubernetes incident-diagnostics toolkit built around one constraint: the people and tools investigating an incident should be *able* to read what they need, and *unable* to change anything. That includes AI assistants.
