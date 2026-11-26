@@ -17,3 +17,9 @@ Being listed grants nothing by itself. Access exists only between
 `grant` and `revoke` for one incident. Logs need an explicit `--logs`.
 
 Revoking is never restricted by the allowlist: removing access always works.
+
+The allowlist is one of two approvals. The platform must also label the
+namespace `production-debug/diagnosable: "true"` (kubernetes-in-finance
+`kubernetes/tenants/`). The `production-debug-access-guard` admission policy
+enforces that label in the API server, whether or not this script is used. See
+[docs/security/admission-policy-guide.md](../docs/security/admission-policy-guide.md).

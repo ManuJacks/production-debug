@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: production-debug-egress
+  namespace: debug-system
 spec:
   podSelector:
     matchLabels:

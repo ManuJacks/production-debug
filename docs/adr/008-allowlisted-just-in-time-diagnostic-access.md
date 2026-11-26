@@ -60,10 +60,9 @@ Three scopes were considered:
   are Forbidden. Responders must ask for logs deliberately.
 - `grant` now needs `--env`. This is a breaking change to a script released
   in 0.2.0.
-- **The allowlist is enforced by the script, not by the API server.** A
-  cluster-admin can still create a RoleBinding by hand. Server-side
-  enforcement (for example a ValidatingAdmissionPolicy that rejects
-  bindings of the `prod-debug-*` roles outside labelled namespaces) is a
-  follow-up.
+- The allowlist file is enforced by the script. Since ADR-SEC-001 section
+  3.4, the API server also enforces the platform's namespace label, through
+  the `production-debug-access-guard` ValidatingAdmissionPolicy. So a grant
+  needs both approvals, and bypassing the script no longer works.
 - Checks use `kubectl auth can-i ... --subresource=<sub>`. The
   `pods/<sub>` form names a pod and silently checks the wrong thing.

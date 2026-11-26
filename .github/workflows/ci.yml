@@ -162,6 +162,11 @@ jobs:
       - name: Cleanup is idempotent
         run: bash demo/run.sh cleanup
 
+      - name: Admission policy guards production-debug access (17 live cases)
+        run: |
+          kubectl apply -f k8s/rbac.yaml -f k8s/admission-policy.yaml
+          bash scripts/test-access-guard.sh kind-pd-e2e
+
       - name: Upload incident archive
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
