@@ -4,6 +4,7 @@
 - Date: 2026-11-25
 - Deciders: Maintainers
 - Technical area: safety, operations
+- Security record: [ADR-SEC-001](../security/ADR-SEC-001-diagnostic-access-model.md) (threats, evidence, residual risks)
 
 ## Context
 
