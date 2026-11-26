@@ -126,6 +126,40 @@ Creating a namespace there does not make it diagnosable. That takes a
 separate, reviewed change to this repository's allowlist. The two repositories
 therefore act as two controls run by two different owners.
 
+### 3.4 Server-side enforcement: `production-debug-access-guard`
+
+The script's allowlist protects only people who use the script. A
+ValidatingAdmissionPolicy (`k8s/admission-policy.yaml`) makes the API server
+enforce the same boundary for **every** RoleBinding and ClusterRoleBinding
+create or update, whether it comes from kubectl, GitOps or automation:
+
+1. A RoleBinding to a production-debug role is admitted only in a namespace
+   labelled `production-debug/diagnosable="true"`, and never in a system
+   namespace. This applies whoever the subject is.
+2. `prod-debug-reader` and `prod-debug-log-reader` are never admitted in a
+   ClusterRoleBinding. Only Layer 1 may be cluster-wide.
+3. The production-debug identity may be bound only to production-debug
+   roles. It is recognised under all three of its RBAC names: as a
+   ServiceAccount, as the User `system:serviceaccount:debug-system:prod-debug-sa`,
+   and through the Group `system:serviceaccounts:debug-system`. Nobody can
+   give it `view`, `edit` or `cluster-admin`.
+
+Settings:
+
+- `failurePolicy: Fail`
+- `validationActions: [Deny]`
+- matches CREATE and UPDATE only, so revoking (DELETE) is never blocked
+
+**Two approvals, two owners.** A grant now needs both:
+
+| Approval | Owner | Enforced by |
+|---|---|---|
+| Namespace label `production-debug/diagnosable: "true"` | Platform, in kubernetes-in-finance `kubernetes/tenants/` | API server (this policy) and the grant script |
+| Namespace in `access/<env>.namespaces` | production-debug maintainers | Grant script |
+
+How it works, how to test it, how to debug it, and rehearsal drills:
+[admission-policy-guide.md](admission-policy-guide.md).
+
 ## 4. Threats and controls
 
 | Threat | Control |
@@ -138,6 +172,10 @@ therefore act as two controls run by two different owners.
 | Unreviewed growth of diagnosable scope | Allowlist in Git; new namespaces are not diagnosable by default |
 | Diagnostic identity changes or executes in workloads | Read verbs only; no exec, attach, port-forward or proxy (contract test) |
 | Access checks give false assurance | Subresources checked with `--subresource` (section 5); script and demo fail on unexpected results |
+| Someone bypasses the script and binds a debug role by hand or through GitOps | Admission policy Rule 1: unlabelled namespaces denied server-side |
+| Debug identity silently given broader roles (`view`, `edit`, `cluster-admin`) | Admission policy Rule 3, covering the ServiceAccount, User and Group forms |
+| Workload or log layer bound cluster-wide | Admission policy Rule 2 and the manifest contract test |
+| A broken policy expression fails open | `failurePolicy: Fail`; contract test; 17 live cases in CI |
 
 ## 5. Defect found during verification: `can-i` false assurance
 
@@ -193,13 +231,32 @@ from inside the `production-debug` pod (image `0.2.0`) and by impersonation:
 - kubernetes-in-finance `tests/test_tenant_namespaces.py`: tenants enforce
   `restricted`, have quotas, and run compliant workloads.
 - CI runs the corrected demo end to end on kind for every pull request.
+- `scripts/test-access-guard.sh` runs 17 live admission cases (all three
+  rules, unrelated bindings, existing objects, UPDATE and DELETE) using
+  `--dry-run=server`. CI runs them on kind for every pull request.
+- On the HA lab cluster (2026-11-25):
+  - all 17 cases matched
+  - `grant app-team-a --logs`, then reading logs from the pod, then `revoke`,
+    all succeeded with the policy active
+  - before the platform label was applied, the grant was refused by both the
+    script and the API server
+  - `status.typeChecking` is empty
 
 ## 7. Residual risks and follow-ups
 
-1. **The script enforces the allowlist, not the API server.** A cluster-admin
-   can still create a RoleBinding to `prod-debug-reader` anywhere. Follow-up:
-   a ValidatingAdmissionPolicy that rejects bindings of `prod-debug-*` roles
-   outside namespaces carrying an approved label.
+1. **Resolved by section 3.4, with remaining limits:**
+   - A cluster-admin can delete or change the policy. That is now a
+     deliberate change to a security control; API audit logging (item 3)
+     would record it.
+   - Rule 3 does not catch bindings to the broad groups
+     `system:serviceaccounts` or `system:authenticated`. Matching them could
+     block the API server's reconciliation of built-in bindings such as
+     `system:basic-user`. Accepted risk.
+   - Admission does not re-check existing objects. Removing the label leaves
+     open grants in place, so they must be revoked too.
+   - A broken `Fail` policy blocks every RoleBinding and ClusterRoleBinding
+     write in the cluster. Policy changes must be tested on kind or with a
+     scratch copy first (guide, section 5, item 7).
 2. **Grants do not expire.** Access lasts until `revoke` is run. A forgotten
    revoke leaves standing access in that namespace. Follow-up: an expiry
    annotation on the binding plus a reaper, or a short-lived token-based
@@ -229,3 +286,4 @@ from inside the `production-debug` pod (image `0.2.0`) and by impersonation:
 | 2026-11-25 | Old binding removed from the HA lab cluster; v0.2.0 manifests applied | Operator action, verified as in section 6 |
 | 2026-11-25 | Tenant namespaces `app-team-a`, `app-team-b` | kubernetes-in-finance PR #7 |
 | 2026-11-25 | Allowlist, log layer, `can-i` subresource fix, this record | PR #15, ADR 008 |
+| 2026-11-25 | Admission policy `production-debug-access-guard`, platform approval label, live test script, study guide | This PR; kubernetes-in-finance tenant label PR |

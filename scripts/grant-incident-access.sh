@@ -8,8 +8,9 @@
 #
 # grant  binds prod-debug-reader (workload metadata) into <namespace>, and
 #        prod-debug-log-reader (pods/log) too when --logs is given. Refused
-#        unless access/<env>.namespaces lists <namespace> and its context=
-#        matches the current kubeconfig context.
+#        unless access/<env>.namespaces lists <namespace>, its context=
+#        matches the current kubeconfig context, and the platform has labelled
+#        the namespace production-debug/diagnosable=true.
 # revoke removes both bindings. Never restricted by the allowlist.
 # check  reports what the ServiceAccount can do in <namespace>.
 #
@@ -131,6 +132,12 @@ case "$action" in
     grant)
         check_allowlist
         kubectl get namespace "$ns" >/dev/null
+        # The platform's approval. The production-debug-access-guard admission
+        # policy enforces the same label server-side; checking here gives a
+        # clear message and also covers clusters without the policy.
+        label="$(kubectl get namespace "$ns" -o go-template='{{index .metadata.labels "production-debug/diagnosable"}}')"
+        [ "$label" = "true" ] ||
+            refuse "namespace '$ns' is not labelled production-debug/diagnosable=true by the platform"
         bind "$READER_BINDING" "$READER_ROLE"
         if [ "$logs" = yes ]; then
             bind "$LOG_BINDING" "$LOG_ROLE"

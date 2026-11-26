@@ -1,0 +1,85 @@
+# Server-side guard for production-debug access (ADR-SEC-001 section 3.4).
+#
+# RBAC decides WHO may create a RoleBinding. This policy decides WHICH
+# RoleBindings are acceptable at all, whoever creates them: by
+# grant-incident-access.sh, by hand with kubectl, or through GitOps.
+#
+#   Rule 1  A RoleBinding to a production-debug role is only admitted in a
+#           namespace labelled production-debug/diagnosable=true, and never in
+#           a system namespace.
+#   Rule 2  Layers 2 and 3 (workload, logs) are never bound cluster-wide; only
+#           prod-debug-cluster-reader may appear in a ClusterRoleBinding.
+#   Rule 3  The production-debug identity may only be bound to production-debug
+#           roles, so nobody can quietly give it "view", "edit" or
+#           "cluster-admin".
+#
+# The platform (kubernetes-in-finance kubernetes/tenants/) owns the label.
+# Deleting a binding is never blocked, so revoking always works.
+# Learn how it works and how to test it: docs/security/admission-policy-guide.md
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: production-debug-access-guard
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["rbac.authorization.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["rolebindings", "clusterrolebindings"]
+  variables:
+    - name: debugRoles
+      expression: "['prod-debug-reader', 'prod-debug-log-reader', 'prod-debug-cluster-reader']"
+    - name: refsDebugRole
+      expression: >-
+        object.roleRef.kind == 'ClusterRole' &&
+        object.roleRef.name in variables.debugRoles
+    - name: bindsDebugIdentity
+      expression: >-
+        has(object.subjects) && object.subjects.exists(s,
+          (s.kind == 'ServiceAccount' && s.name == 'prod-debug-sa' &&
+            has(s.namespace) && s.namespace == 'debug-system') ||
+          (s.kind == 'User' && s.name == 'system:serviceaccount:debug-system:prod-debug-sa') ||
+          (s.kind == 'Group' && s.name == 'system:serviceaccounts:debug-system'))
+    - name: isRoleBinding
+      expression: "request.kind.kind == 'RoleBinding'"
+    - name: nsApproved
+      expression: >-
+        namespaceObject != null &&
+        has(namespaceObject.metadata.labels) &&
+        'production-debug/diagnosable' in namespaceObject.metadata.labels &&
+        namespaceObject.metadata.labels['production-debug/diagnosable'] == 'true'
+  validations:
+    # Rule 1
+    - expression: >-
+        !variables.isRoleBinding || !variables.refsDebugRole ||
+        (!(request.namespace in ['kube-system', 'kube-public', 'kube-node-lease', 'debug-system']) &&
+         variables.nsApproved)
+      messageExpression: >-
+        'production-debug roles may only be bound in namespaces labelled
+        production-debug/diagnosable=true; namespace ' + request.namespace +
+        ' is not approved'
+      reason: Forbidden
+    # Rule 2
+    - expression: >-
+        variables.isRoleBinding || !variables.refsDebugRole ||
+        object.roleRef.name == 'prod-debug-cluster-reader'
+      messageExpression: >-
+        object.roleRef.name + ' is namespace-scoped by design and must not be
+        bound with a ClusterRoleBinding'
+      reason: Forbidden
+    # Rule 3
+    - expression: "!variables.bindsDebugIdentity || variables.refsDebugRole"
+      messageExpression: >-
+        'the production-debug identity may only be bound to production-debug
+        roles, not ' + object.roleRef.kind + '/' + object.roleRef.name
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: production-debug-access-guard
+spec:
+  policyName: production-debug-access-guard
+  validationActions: [Deny]
