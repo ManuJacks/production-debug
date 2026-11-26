@@ -4,6 +4,8 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-25
+
 - Security: the general-purpose RBAC in `k8s/` and `gitops/base/` is now namespace-scoped. Previously a ClusterRoleBinding gave the diagnostic ServiceAccount cluster-wide read access, including ConfigMaps. `prod-debug-reader` (no ConfigMaps) is now bound per incident namespace with a RoleBinding via the new `scripts/grant-incident-access.sh grant|revoke|check`, which also runs `kubectl auth can-i` checks. The only cluster-wide grant left is read access to nodes and namespaces. **Upgrade:** `kubectl apply` does not remove the old binding; run `kubectl delete clusterrolebinding prod-debug-reader-binding`. The triage workspace honours `INCIDENT_NAMESPACE`. Contract tests in `tests/test_rbac_manifests.py`.
 - Docs: removed self-descriptive "staff-level" labels from guides and cheatsheets; ADR 003 recorded as an unused number (it was never written).
 - Fixed: `capture_network_trace_summary` ran `tcpdump` without `-p`, so it switched the interface into promiscuous mode, contradicting its read-only annotation and documentation. It now captures in non-promiscuous mode, honours `duration_sec` as the capture window, and returns packets observed before the window ends (`partial: true`) instead of discarding them.
