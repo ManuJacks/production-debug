@@ -1,3 +1,20 @@
+# Least-privilege RBAC for the production-debug pod.
+#
+# Nothing here grants access to any workload namespace. Access is granted per
+# incident by binding the prod-debug-reader ClusterRole with a RoleBinding in
+# the incident namespace only (see scripts/grant-incident-access.sh):
+#
+#   kubectl create rolebinding prod-debug-reader -n <incident-ns> \
+#     --clusterrole=prod-debug-reader \
+#     --serviceaccount=debug-system:prod-debug-sa
+#
+# A ClusterRole bound by a RoleBinding grants its rules in that one namespace
+# only. Secrets and ConfigMaps are never granted, and there are no write verbs,
+# no pods/exec, pods/attach, pods/portforward or pods/proxy.
+#
+# The only cluster-wide grant is read access to node and namespace objects
+# (prod-debug-cluster-reader), so node pressure and NotReady nodes can be
+# triaged before a namespace has been chosen.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -12,29 +29,46 @@ metadata:
     # Azure Workload Identity annotation for zero-secret auth
     azure.workload.identity/client-id: "PLACEHOLDER_AZURE_CLIENT_ID"
 ---
+# Namespaced read rules. Grants nothing until bound with a RoleBinding.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: prod-debug-reader
 rules:
 - apiGroups: [""]
-  resources: ["pods", "pods/log", "events", "nodes", "services", "endpoints", "configmaps", "namespaces"]
+  resources: ["pods", "pods/log", "events", "services", "endpoints"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["apps"]
   resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["events.k8s.io"]
+  resources: ["events"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["ingresses", "networkpolicies"]
   verbs: ["get", "list", "watch"]
 ---
+# Cluster-scoped objects only: these have no namespace to bind into.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prod-debug-cluster-reader
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "namespaces"]
+  verbs: ["get", "list", "watch"]
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: prod-debug-reader-binding
+  name: prod-debug-cluster-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: prod-debug-reader
+  name: prod-debug-cluster-reader
 subjects:
 - kind: ServiceAccount
   name: prod-debug-sa
