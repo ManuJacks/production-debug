@@ -28,11 +28,12 @@ tmux new-session -d -s "$SESSION_NAME" -n "triage" \
     'echo "=== [PANE 1] Live K8s Diagnostics & Event Stream ==="; \
      if command -v k9s >/dev/null 2>&1 && [ -n "${KUBECONFIG:-}" -o -f "$HOME/.kube/config" -o -f /var/run/secrets/kubernetes.io/serviceaccount/token ]; then \
        echo "Starting K9s TUI (Press q to exit to shell)..."; \
-       k9s --readonly || exec bash; \
+       k9s --readonly ${INCIDENT_NAMESPACE:+-n "$INCIDENT_NAMESPACE"} || exec bash; \
      elif command -v kubectl >/dev/null 2>&1; then \
-       kubectl get events -A --sort-by=.metadata.creationTimestamp -w 2>/dev/null || \
-       kubectl get pods -A --field-selector status.phase!=Running -w 2>/dev/null || \
-       echo "Kubectl active. Run: kubectl get pods -A"; \
+       NS_ARGS="-A"; [ -n "${INCIDENT_NAMESPACE:-}" ] && NS_ARGS="-n ${INCIDENT_NAMESPACE}"; \
+       kubectl get events $NS_ARGS --sort-by=.metadata.creationTimestamp -w 2>/dev/null || \
+       kubectl get pods $NS_ARGS --field-selector status.phase!=Running -w 2>/dev/null || \
+       echo "Kubectl active. Set INCIDENT_NAMESPACE or run: kubectl get pods -n <incident-namespace>"; \
      else \
        echo "kubectl/k9s not active. Standalone Linux mode."; \
      fi; exec bash'

@@ -118,7 +118,7 @@ Every row below is enforced in code and covered by a test or a demo check. Anyth
 - **Redaction is pattern-based.** It catches recognized credential formats (JWTs, private keys, bearer tokens, common key/password assignments). Unrecognized secrets can remain. Review bundles before sharing them.
 - **Logs are evidence and may contain sensitive data.** `pods/log` access is required to diagnose most incidents.
 - **Bundles are verified, not tamper-proof.** The SHA-256 fingerprint detects accidental change; it is not a signature.
-- **The demo's Role is namespace-scoped.** The general-purpose manifests in `k8s/` and `gitops/` use a cluster-wide read-only ClusterRole that also covers nodes and ConfigMaps; review it before use.
+- **Node and namespace objects are readable cluster-wide.** The general-purpose manifests in `k8s/` and `gitops/` grant no workload access until an operator binds the `prod-debug-reader` ClusterRole into one incident namespace with a RoleBinding (`scripts/grant-incident-access.sh`). The only cluster-wide grant is read access to `nodes` and `namespaces`, so node pressure can be triaged first.
 - **The privileged variant (`k8s/debug-pod-privileged.yaml`) is not part of the tested security model.** Its added capabilities are not effective for a non-root user without further configuration, and it has not been validated.
 - **Only the four Kubernetes MCP tools are covered by the read-only guarantee.** `generate_incident_bundle` writes local files and is annotated `readOnlyHint=false`; the DNS, Azure identity and packet-capture tools are outside the demo.
 - **The network trace tool is read-only with respect to system and infrastructure state, but performs active local observation.** It may consume bounded process/CPU resources, create a transient capture socket, and expose packet metadata visible to the diagnostic identity. It captures in non-promiscuous mode (`tcpdump -p`), and does not persist captures, change interface configuration, intentionally transmit packets, or modify Kubernetes/cloud resources. It requires `tcpdump` and suitable capabilities and may fail in the default restricted pod.
@@ -487,6 +487,19 @@ kubectl exec -it -n debug-system \
   pod/production-debug -- /bin/bash
 ```
 
+The pod starts with no access to any workload namespace. Grant read-only access to the incident namespace only, and revoke it when the incident closes (run with operator credentials):
+
+```bash
+scripts/grant-incident-access.sh grant  <incident-namespace>   # RoleBinding + can-i checks
+scripts/grant-incident-access.sh revoke <incident-namespace>
+```
+
+Upgrading from a release before this change: the old cluster-wide binding is not removed by `kubectl apply`. Delete it explicitly:
+
+```bash
+kubectl delete clusterrolebinding prod-debug-reader-binding --ignore-not-found
+```
+
 Review the RBAC and pod security manifests before deploying into a shared or production cluster.
 
 ### Container on a Linux VM
@@ -663,7 +676,7 @@ The toolkit supports incident command and driver/navigator/scribe collaboration,
 
 This project is an evolving engineering reference and diagnostic toolkit. Its current boundaries are explicit:
 
-- The general-purpose deployment in `k8s/` and `gitops/` uses read-only but cluster-wide RBAC. The demo's diagnostic identity is namespace-scoped; see [Security model](#security-model).
+- The general-purpose deployment in `k8s/` and `gitops/` can read node and namespace objects cluster-wide; workload access is granted per incident namespace. See [Security model](#security-model).
 - Bundle redaction is best-effort and does not replace manual review.
 - Session logs are not immutable or tamper-proof.
 - Azure identity configuration detection does not prove successful authentication.
@@ -673,7 +686,6 @@ This project is an evolving engineering reference and diagnostic toolkit. Its cu
 
 **Roadmap (not implemented):**
 
-- A namespace-scoped variant of the general-purpose `k8s/` and `gitops/` deployment.
 - Signed incident bundles (today: SHA-256 fingerprint only).
 - Build-provenance attestation for published images.
 - Per-call audit logging for MCP tool invocations.
