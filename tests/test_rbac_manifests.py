@@ -128,7 +128,7 @@ FAKE_KUBECTL = r"""#!/usr/bin/env bash
 echo "$*" >> "$CALLS"
 case "$1 $2" in
   "config current-context") echo "$FAKE_CONTEXT" ;;
-  "get namespace") exit 0 ;;
+  "get namespace") case "$*" in *go-template*) echo "${FAKE_LABEL-true}" ;; esac ;;
   "get rolebinding") grep -qx "$3" "$STATE" 2>/dev/null ;;
   "create rolebinding") grep -qx "$3" "$STATE" || echo "$3" >> "$STATE"; echo "kind: RoleBinding" ;;
   "apply -f") cat >/dev/null ;;
@@ -226,6 +226,16 @@ def test_env_from_environment_variable(fake):
         (["--env", "../lab", "grant", "app-team-a"], {}, "invalid environment"),
         (["--env", "lab", "grant", "kube-system"], {}, "system namespace"),
         (["--env", "lab", "grant", "debug-system"], {}, "system namespace"),
+        (
+            ["--env", "lab", "grant", "app-team-a"],
+            {"FAKE_LABEL": "<no value>"},
+            "not labelled",
+        ),
+        (
+            ["--env", "lab", "grant", "app-team-a"],
+            {"FAKE_LABEL": "false"},
+            "not labelled",
+        ),
     ],
 )
 def test_grant_refusals_create_nothing(fake, args, extra, message):
@@ -266,3 +276,59 @@ def test_demo_access_checks_pass_subresources_explicitly():
     demo = (ROOT / "demo" / "run.sh").read_text()
     assert '--subresource="${resource#*/}"' in demo
     assert '"${resource%%/*}"' in demo
+
+
+# --- admission policy ---------------------------------------------------------
+
+POLICY_FILES = [
+    ROOT / "k8s" / "admission-policy.yaml",
+    ROOT / "gitops" / "base" / "admission-policy.yaml",
+]
+
+
+def _policy() -> tuple[dict, dict]:
+    docs = {d["kind"]: d for d in _docs(POLICY_FILES[0])}
+    return docs["ValidatingAdmissionPolicy"], docs["ValidatingAdmissionPolicyBinding"]
+
+
+def test_policy_copies_are_identical():
+    assert POLICY_FILES[0].read_text() == POLICY_FILES[1].read_text()
+
+
+@pytest.mark.parametrize("base", ["k8s", "gitops/base"])
+def test_policy_is_deployed_by_kustomization(base):
+    kustomization = yaml.safe_load((ROOT / base / "kustomization.yaml").read_text())
+    assert "admission-policy.yaml" in kustomization["resources"]
+    # A namespace transformer would stamp a namespace onto the cluster-scoped
+    # policy objects; every namespaced object sets its namespace explicitly.
+    assert "namespace" not in kustomization
+
+
+def test_policy_fails_closed_and_denies():
+    policy, binding = _policy()
+    assert policy["spec"]["failurePolicy"] == "Fail"
+    assert binding["spec"]["policyName"] == policy["metadata"]["name"]
+    assert binding["spec"]["validationActions"] == ["Deny"]
+
+
+def test_policy_never_blocks_deletes():
+    policy, _ = _policy()
+    for rule in policy["spec"]["matchConstraints"]["resourceRules"]:
+        assert rule["operations"] == ["CREATE", "UPDATE"]
+        assert set(rule["resources"]) == {"rolebindings", "clusterrolebindings"}
+
+
+def test_policy_role_names_match_rbac():
+    policy, _ = _policy()
+    variables = {v["name"]: v["expression"] for v in policy["spec"]["variables"]}
+    in_policy = set(yaml.safe_load(variables["debugRoles"]))
+    in_rbac = set(_roles(_docs(RBAC_FILES[0])))
+    assert in_policy == in_rbac
+
+
+def test_policy_has_three_rules_with_messages():
+    policy, _ = _policy()
+    validations = policy["spec"]["validations"]
+    assert len(validations) == 3
+    for v in validations:
+        assert v["messageExpression"] and v["reason"] == "Forbidden"

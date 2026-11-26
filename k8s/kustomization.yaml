@@ -1,8 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: debug-system
-
 resources:
   - rbac.yaml
+  - admission-policy.yaml
   - debug-pod.yaml
