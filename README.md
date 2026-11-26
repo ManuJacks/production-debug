@@ -118,7 +118,7 @@ Every row below is enforced in code and covered by a test or a demo check. Anyth
 - **Redaction is pattern-based.** It catches recognized credential formats (JWTs, private keys, bearer tokens, common key/password assignments). Unrecognized secrets can remain. Review bundles before sharing them.
 - **Logs are evidence and may contain sensitive data.** `pods/log` access is required to diagnose most incidents.
 - **Bundles are verified, not tamper-proof.** The SHA-256 fingerprint detects accidental change; it is not a signature.
-- **Node and namespace objects are readable cluster-wide.** The general-purpose manifests in `k8s/` and `gitops/` grant no workload access until an operator binds the `prod-debug-reader` ClusterRole into one incident namespace with a RoleBinding (`scripts/grant-incident-access.sh`). The only cluster-wide grant is read access to `nodes` and `namespaces`, so node pressure can be triaged first.
+- **Access is layered, allowlisted and temporary.** The general-purpose manifests in `k8s/` and `gitops/` grant no workload access by default. An operator binds workload metadata (`prod-debug-reader`) into one incident namespace, and container logs (`prod-debug-log-reader`) only with an explicit `--logs`. Only namespaces listed in the environment's allowlist (`access/<env>.namespaces`, [ADR 008](docs/adr/008-allowlisted-just-in-time-diagnostic-access.md)) can be granted. Node and namespace objects are the only standing cluster-wide read, so node pressure can be triaged first. The allowlist is enforced by `scripts/grant-incident-access.sh`, not by the API server; a cluster-admin can still bind roles by hand.
 - **The privileged variant (`k8s/debug-pod-privileged.yaml`) is not part of the tested security model.** Its added capabilities are not effective for a non-root user without further configuration, and it has not been validated.
 - **Only the four Kubernetes MCP tools are covered by the read-only guarantee.** `generate_incident_bundle` writes local files and is annotated `readOnlyHint=false`; the DNS, Azure identity and packet-capture tools are outside the demo.
 - **The network trace tool is read-only with respect to system and infrastructure state, but performs active local observation.** It may consume bounded process/CPU resources, create a transient capture socket, and expose packet metadata visible to the diagnostic identity. It captures in non-promiscuous mode (`tcpdump -p`), and does not persist captures, change interface configuration, intentionally transmit packets, or modify Kubernetes/cloud resources. It requires `tcpdump` and suitable capabilities and may fail in the default restricted pod.
@@ -394,7 +394,7 @@ kubectl auth can-i get pods \
   --as=system:serviceaccount:production-debug-lab:restricted-demo \
   -n production-debug-lab
 
-kubectl auth can-i get pods/log \
+kubectl auth can-i get pods --subresource=log \
   --as=system:serviceaccount:production-debug-lab:restricted-demo \
   -n production-debug-lab
 
@@ -487,11 +487,12 @@ kubectl exec -it -n debug-system \
   pod/production-debug -- /bin/bash
 ```
 
-The pod starts with no access to any workload namespace. Grant read-only access to the incident namespace only, and revoke it when the incident closes (run with operator credentials):
+The pod starts with no access to any workload namespace. Grant read-only access to the incident namespace only, and revoke it when the incident closes (run with operator credentials). The namespace must be listed in `access/<env>.namespaces`, and the current kubeconfig context must match that file's `context=`. Without `--logs`, the MCP log tool and the evidence collector's log steps are Forbidden:
 
 ```bash
-scripts/grant-incident-access.sh grant  <incident-namespace>   # RoleBinding + can-i checks
-scripts/grant-incident-access.sh revoke <incident-namespace>
+scripts/grant-incident-access.sh --env lab grant app-team-a          # workload metadata only
+scripts/grant-incident-access.sh --env lab grant app-team-a --logs   # plus container logs
+scripts/grant-incident-access.sh revoke app-team-a
 ```
 
 Upgrading from a release before this change: the old cluster-wide binding is not removed by `kubectl apply`. Delete it explicitly:

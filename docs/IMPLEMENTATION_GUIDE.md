@@ -25,7 +25,7 @@ For live incident operation, read [Operating Model](OPERATING_MODEL.md) first. I
 | **Container Bootstrapper** | [`docker/entrypoint.sh`](../docker/entrypoint.sh) | MOTD, runtime privilege detection (`UID 10001`), and Azure IMDS / Workload Identity validation. |
 | **Tmux Workspace** | [`scripts/launch-tmux-triage.sh`](../scripts/launch-tmux-triage.sh) | Standard 4-pane live triage dashboard with auto-pipe session logging. |
 | **K8s Pod Manifest** | [`k8s/debug-pod.yaml`](../k8s/debug-pod.yaml) | Ephemeral debug pod with non-root security context, capability drops, and node tolerations. |
-| **Scoped RBAC** | [`k8s/rbac.yaml`](../k8s/rbac.yaml) | ServiceAccount and read-only `ClusterRole` template, bound per incident namespace with a RoleBinding ([`scripts/grant-incident-access.sh`](../scripts/grant-incident-access.sh)). Cluster-wide: read nodes and namespaces only. |
+| **Scoped RBAC** | [`k8s/rbac.yaml`](../k8s/rbac.yaml) | Three read-only layers: nodes/namespaces (standing), workload metadata and logs (each bound per incident namespace with a RoleBinding by [`scripts/grant-incident-access.sh`](../scripts/grant-incident-access.sh), only into namespaces in [`access/<env>.namespaces`](../access/README.md)). |
 | **Kustomize Overlay** | [`k8s/kustomization.yaml`](../k8s/kustomization.yaml) | 1-step deployment into the `debug-system` namespace. |
 | **MCP AI Server** | [`mcp/server.py`](../mcp/server.py) | FastMCP / JSON-RPC server exposing read-only diagnostic tools to AI assistants. |
 | **Test Suite** | [`tests/test_support_scripts.py`](../tests/test_support_scripts.py) | 100% automated test suite validating bash scripts, CLI contracts, and MCP functions. |
@@ -88,16 +88,25 @@ securityContext:
 ### Deploying Scoped Pod
 ```bash
 kubectl apply -k k8s/
-scripts/grant-incident-access.sh grant <incident-namespace>
+scripts/grant-incident-access.sh --env <env> grant <incident-namespace> [--logs]
 kubectl exec -it -n debug-system pod/production-debug -- env INCIDENT_NAMESPACE=<incident-namespace> /bin/bash
 # when the incident closes:
 scripts/grant-incident-access.sh revoke <incident-namespace>
 ```
 
-The ServiceAccount has no workload access until it is granted. The grant is a
-RoleBinding to the `prod-debug-reader` ClusterRole, so the rules apply in that
-one namespace only. Secrets, ConfigMaps, `pods/exec` and all write verbs are
-never granted.
+The ServiceAccount has no workload access until it is granted, and only
+namespaces in `access/<env>.namespaces` can be granted. Each grant is a
+RoleBinding to a ClusterRole, so the rules apply in that one namespace only:
+
+| Layer | ClusterRole | Grants | How |
+|---|---|---|---|
+| 1 | `prod-debug-cluster-reader` | nodes, namespaces | standing ClusterRoleBinding |
+| 2 | `prod-debug-reader` | pods, events, services, endpoints, EndpointSlices, workloads, ingresses, NetworkPolicies | `grant <ns>` |
+| 3 | `prod-debug-log-reader` | `pods/log` | `grant <ns> --logs` |
+
+Logs are separate because they can contain credentials, tokens and personal
+data. Secrets, ConfigMaps, `pods/exec`, `pods/portforward` and all write verbs
+are never granted. Database access is out of scope and needs its own model.
 
 The pod's root filesystem is read-only. Writable runtime state is provided only
 through the dedicated `/tmp` and `/tmp/incident-bundle` `emptyDir` mounts.
