@@ -20,11 +20,13 @@ The standard pod runs as UID 10001, disables privilege escalation, uses RuntimeD
 
 `NET_ADMIN`, `NET_RAW`, and `SYS_PTRACE` are still meaningful privileges. They are retained in the default profile because the toolkit is intended to diagnose network and process failures, but the pod must not be treated as a low-trust workload. The privileged manifest adds host PID access, `SYS_ADMIN`, and a CRI socket only for an approved node-level investigation.
 
-## Why cluster-wide read access exists
+## Why access is granted per incident namespace
 
-Incident responders often need to compare nodes, namespaces, network policies, and workload state across the cluster. A cluster-wide reader avoids an emergency privilege grant that is broader or less auditable than the declared role.
+Earlier releases bound a read-only ClusterRole with a ClusterRoleBinding, on the grounds that responders compare state across the cluster and an emergency grant would be less auditable than a declared role. In practice that gave the diagnostic identity standing read access to every namespace, including ConfigMaps, whether or not an incident was open. Read-only is not harmless.
 
-The tradeoff is significant: read-only is not harmless. A future hardening path is to ship namespace-scoped defaults and a separately approved cluster-wide overlay, with explicit evidence that cross-namespace visibility is required for each incident class.
+The default is now namespace-scoped. `prod-debug-reader` is a ClusterRole used as a template and bound with a RoleBinding in the incident namespace only (`scripts/grant-incident-access.sh grant <ns>`), and the binding is removed when the incident closes. The grant is still declared in Git and auditable: it is one well-known role, one well-known binding name, and the script checks the result with `kubectl auth can-i`. The only standing cluster-wide grant is read access to `nodes` and `namespaces`, which are cluster-scoped and needed to triage node pressure before a namespace is known. Secrets, ConfigMaps, `pods/exec` and write verbs are never granted.
+
+Cross-namespace investigations bind the same role into each affected namespace. A cluster-wide overlay remains possible but should require explicit approval and evidence that the incident class needs it.
 
 ## Release and rollback policy
 
@@ -36,7 +38,6 @@ Bundle sanitization is best-effort pattern matching. Verification rejects known 
 
 ## Next hardening steps
 
-1. Provide a namespace-scoped RBAC overlay and require an explicit approval for cluster-wide access.
-2. Promote image digests in GitOps environments and verify signatures before deployment.
-3. Add adversarial archive tests for links, duplicate entries, oversized payloads, and existing extraction directories.
-4. Measure incident time-to-diagnosis and handoff completeness in game-day exercises.
+1. Promote image digests in GitOps environments and verify signatures before deployment.
+2. Add adversarial archive tests for links, duplicate entries, oversized payloads, and existing extraction directories.
+3. Measure incident time-to-diagnosis and handoff completeness in game-day exercises.
