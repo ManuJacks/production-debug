@@ -1,0 +1,5 @@
+# Lab: kubernetes-in-finance HA cluster (kubeadm, 3 control planes).
+# Tenant namespaces are owned by that repo: kubernetes/tenants/.
+context=kubernetes-admin@kubernetes
+app-team-a
+app-team-b

@@ -4,6 +4,12 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+- Security: diagnostic access is now allowlisted per environment ([ADR 008](docs/adr/008-allowlisted-just-in-time-diagnostic-access.md)). `scripts/grant-incident-access.sh` grants only namespaces listed in `access/<env>.namespaces` and refuses if the kubeconfig context differs from the file's `context=`. Lab allowlist: `app-team-a`, `app-team-b` (tenant namespaces owned by kubernetes-in-finance). Production allowlist starts empty.
+- Security: container logs are a separate layer. `pods/log` moved out of `prod-debug-reader` into the new `prod-debug-log-reader` ClusterRole, granted only with `--logs`. Re-granting without `--logs` removes an earlier log grant. **Operator impact:** without `--logs`, the MCP `k8s_get_pod_logs` tool and the evidence collector's log steps return Forbidden. The demo uses its own Role and is unchanged.
+- **Breaking (script CLI):** `grant` now requires `--env <env>` (or `PROD_DEBUG_ENV`). `revoke` and `check` are unchanged; `revoke` removes both bindings.
+- Docs: added the security decision record [ADR-SEC-001](docs/security/ADR-SEC-001-diagnostic-access-model.md): prior exposure, the three-layer model, threats and controls, verification evidence and residual risks. Linked from `SECURITY.md`.
+- Fixed: `kubectl auth can-i <verb> pods/log` checks a pod *named* `log`, not the log subresource. The demo's least-privilege proof (`pods/log`, `pods/exec`, `deployments/scale`) and the grant script's checks therefore passed regardless of RBAC. Both now pass `--subresource`, and the README example is corrected.
+
 ## [0.2.0] - 2026-11-25
 
 - Security: the general-purpose RBAC in `k8s/` and `gitops/base/` is now namespace-scoped. Previously a ClusterRoleBinding gave the diagnostic ServiceAccount cluster-wide read access, including ConfigMaps. `prod-debug-reader` (no ConfigMaps) is now bound per incident namespace with a RoleBinding via the new `scripts/grant-incident-access.sh grant|revoke|check`, which also runs `kubectl auth can-i` checks. The only cluster-wide grant left is read access to nodes and namespaces. **Upgrade:** `kubectl apply` does not remove the old binding; run `kubectl delete clusterrolebinding prod-debug-reader-binding`. The triage workspace honours `INCIDENT_NAMESPACE`. Contract tests in `tests/test_rbac_manifests.py`.
