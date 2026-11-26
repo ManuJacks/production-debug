@@ -1,20 +1,20 @@
-# Least-privilege RBAC for the production-debug pod.
+# Least-privilege RBAC for the production-debug pod, in three layers.
 #
-# Nothing here grants access to any workload namespace. Access is granted per
-# incident by binding the prod-debug-reader ClusterRole with a RoleBinding in
-# the incident namespace only (see scripts/grant-incident-access.sh):
+#   Layer 1  prod-debug-cluster-reader  nodes, namespaces      standing (ClusterRoleBinding)
+#   Layer 2  prod-debug-reader          workload metadata      per incident, per namespace
+#   Layer 3  prod-debug-log-reader      pods/log               per incident, explicit --logs
 #
-#   kubectl create rolebinding prod-debug-reader -n <incident-ns> \
-#     --clusterrole=prod-debug-reader \
-#     --serviceaccount=debug-system:prod-debug-sa
+# Layers 2 and 3 grant nothing until bound with a RoleBinding in one incident
+# namespace, and only namespaces named in the environment's allowlist
+# (access/<env>.namespaces) may be granted:
+#
+#   scripts/grant-incident-access.sh --env lab grant app-team-a [--logs]
+#   scripts/grant-incident-access.sh revoke app-team-a
 #
 # A ClusterRole bound by a RoleBinding grants its rules in that one namespace
-# only. Secrets and ConfigMaps are never granted, and there are no write verbs,
-# no pods/exec, pods/attach, pods/portforward or pods/proxy.
-#
-# The only cluster-wide grant is read access to node and namespace objects
-# (prod-debug-cluster-reader), so node pressure and NotReady nodes can be
-# triaged before a namespace has been chosen.
+# only. Logs are separate because they can contain credentials, tokens and
+# personal data. Secrets and ConfigMaps are never granted, and there are no
+# write verbs, no pods/exec, pods/attach, pods/portforward or pods/proxy.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -29,14 +29,14 @@ metadata:
     # Azure Workload Identity annotation for zero-secret auth
     azure.workload.identity/client-id: "PLACEHOLDER_AZURE_CLIENT_ID"
 ---
-# Namespaced read rules. Grants nothing until bound with a RoleBinding.
+# Layer 2: workload metadata. Grants nothing until bound with a RoleBinding.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: prod-debug-reader
 rules:
 - apiGroups: [""]
-  resources: ["pods", "pods/log", "events", "services", "endpoints"]
+  resources: ["pods", "events", "services", "endpoints"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["apps"]
   resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
@@ -51,7 +51,17 @@ rules:
   resources: ["ingresses", "networkpolicies"]
   verbs: ["get", "list", "watch"]
 ---
-# Cluster-scoped objects only: these have no namespace to bind into.
+# Layer 3: container logs. Bound separately and only on request (--logs).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prod-debug-log-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+---
+# Layer 1: cluster-scoped objects only; these have no namespace to bind into.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

@@ -1,0 +1,4 @@
+# Production: explicitly authorised namespaces only.
+# Each entry needs an approved change naming the namespace, its owner and
+# why incident diagnostics there are required. Empty until then.
+context=REPLACE_WITH_PRODUCTION_CONTEXT

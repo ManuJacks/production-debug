@@ -26,7 +26,7 @@ Earlier releases bound a read-only ClusterRole with a ClusterRoleBinding, on the
 
 The default is now namespace-scoped. `prod-debug-reader` is a ClusterRole used as a template and bound with a RoleBinding in the incident namespace only (`scripts/grant-incident-access.sh grant <ns>`), and the binding is removed when the incident closes. The grant is still declared in Git and auditable: it is one well-known role, one well-known binding name, and the script checks the result with `kubectl auth can-i`. The only standing cluster-wide grant is read access to `nodes` and `namespaces`, which are cluster-scoped and needed to triage node pressure before a namespace is known. Secrets, ConfigMaps, `pods/exec` and write verbs are never granted.
 
-Cross-namespace investigations bind the same role into each affected namespace. A cluster-wide overlay remains possible but should require explicit approval and evidence that the incident class needs it.
+Since ADR 008, only namespaces in the environment's allowlist (`access/<env>.namespaces`) can be granted, and container logs are a separate role granted only with `--logs`. Cross-namespace investigations bind the same role into each affected, allowlisted namespace. A cluster-wide overlay remains possible but should require explicit approval and evidence that the incident class needs it.
 
 ## Release and rollback policy
 

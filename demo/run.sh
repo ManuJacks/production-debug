@@ -88,9 +88,12 @@ cleanup() {
 }
 
 check_access() {
-  # expect <allow|deny> <verb> <resource> <namespace|-> [subresource]
+  # expect <allow|deny> <verb> <resource[/subresource]> <namespace|->
+  # can-i reads "pods/log" as resource/NAME (a pod called "log"), so a
+  # subresource must be passed with --subresource or the check is meaningless.
   local expect="$1" verb="$2" resource="$3" ns="$4" got
-  local args=(auth can-i "$verb" "$resource" --as="$SA_USER")
+  local args=(auth can-i "$verb" "${resource%%/*}" --as="$SA_USER")
+  [[ "$resource" == */* ]] && args+=(--subresource="${resource#*/}")
   [[ "$ns" == "-" ]] && args+=(--all-namespaces) || args+=(-n "$ns")
   if k "${args[@]}" >/dev/null 2>&1; then got=allow; else got=deny; fi
   local label
@@ -147,7 +150,7 @@ run_demo() {
   check_access deny  delete pods             "$LAB_NS" || bad=1
   check_access deny  create pods/exec        "$LAB_NS" || bad=1
   check_access deny  patch  deployments.apps "$LAB_NS" || bad=1
-  check_access deny  update deployments/scale "$LAB_NS" || bad=1
+  check_access deny  update deployments.apps/scale "$LAB_NS" || bad=1
   check_access deny  get    secrets          "$LAB_NS" || bad=1
   check_access deny  list   configmaps       "$LAB_NS" || bad=1
   check_access deny  list   pods             kube-system || bad=1
