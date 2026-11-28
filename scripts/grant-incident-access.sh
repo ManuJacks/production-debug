@@ -2,7 +2,7 @@
 # grant-incident-access.sh: give the production-debug ServiceAccount read-only
 # access to ONE allowlisted incident namespace, and take it away afterwards.
 #
-#   scripts/grant-incident-access.sh --env <env> grant <namespace> [--logs]
+#   scripts/grant-incident-access.sh --env <env> grant <namespace> [--logs] [--ttl 4h]
 #   scripts/grant-incident-access.sh revoke <namespace>
 #   scripts/grant-incident-access.sh check  <namespace>
 #
@@ -10,9 +10,14 @@
 #        prod-debug-log-reader (pods/log) too when --logs is given. Refused
 #        unless access/<env>.namespaces lists <namespace>, its context=
 #        matches the current kubeconfig context, and the platform has labelled
-#        the namespace production-debug/diagnosable=true.
+#        the namespace production-debug/diagnosable=true. Every grant expires:
+#        --ttl (default 4h, 5m to 24h, as <n>m or <n>h) sets the
+#        production-debug/expires-at annotation, the admission guard requires
+#        it, and the prod-debug-grant-reaper CronJob deletes expired grants.
+#        Granting again replaces the bindings with a new expiry.
 # revoke removes both bindings. Never restricted by the allowlist.
-# check  reports what the ServiceAccount can do in <namespace>.
+# check  reports what the ServiceAccount can do in <namespace>, and when its
+#        grants expire.
 #
 # Run with operator credentials. The environment can also come from
 # PROD_DEBUG_ENV. Exit codes: 0 ok, 1 access checks did not match, 2 refused.
@@ -27,9 +32,10 @@ LOG_ROLE="${PROD_DEBUG_LOG_ROLE:-prod-debug-log-reader}"
 READER_BINDING="${PROD_DEBUG_BINDING:-prod-debug-reader}"
 LOG_BINDING="${PROD_DEBUG_LOG_BINDING:-prod-debug-log-reader}"
 SUBJECT="system:serviceaccount:${SA_NAMESPACE}:${SA_NAME}"
+EXPIRES_ANNOTATION="production-debug/expires-at"
 
 usage() {
-    echo "usage: $0 --env <env> grant <namespace> [--logs]" >&2
+    echo "usage: $0 --env <env> grant <namespace> [--logs] [--ttl <n>m|<n>h]" >&2
     echo "       $0 revoke|check <namespace>" >&2
     exit 2
 }
@@ -41,6 +47,7 @@ refuse() {
 
 env_name="${PROD_DEBUG_ENV:-}"
 logs=no
+ttl="${PROD_DEBUG_TTL:-4h}"
 args=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -52,6 +59,11 @@ while [ "$#" -gt 0 ]; do
         --logs)
             logs=yes
             shift
+            ;;
+        --ttl)
+            [ "$#" -ge 2 ] || usage
+            ttl="$2"
+            shift 2
             ;;
         -*) usage ;;
         *)
@@ -89,6 +101,19 @@ check_allowlist() {
         refuse "'$ns' is not in the $env_name allowlist ($file)"
 }
 
+# Sets expires_at from $ttl: RFC 3339 UTC, 5 minutes to 24 hours from now.
+compute_expiry() {
+    local n minutes
+    [[ "$ttl" =~ ^([0-9]+)([mh])$ ]] || refuse "invalid --ttl '$ttl': use <n>m or <n>h"
+    n=$((10#${BASH_REMATCH[1]}))
+    minutes=$n
+    [ "${BASH_REMATCH[2]}" = h ] && minutes=$((n * 60))
+    [ "$minutes" -ge 5 ] && [ "$minutes" -le 1440 ] ||
+        refuse "--ttl '$ttl' is outside 5m..24h"
+    expires_at="$(date -u -d "+${minutes} minutes" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" ||
+        refuse "this date(1) cannot compute times (GNU date required)"
+}
+
 has_binding() {
     kubectl get rolebinding "$1" -n "$ns" >/dev/null 2>&1
 }
@@ -117,15 +142,40 @@ CHECKS
     return "$failed"
 }
 
+# The admission guard does not let an update change the expiry, so a grant
+# replaces the binding: delete, then create with labels and expiry in one go.
 bind() {
     local binding="$1" role="$2"
-    kubectl create rolebinding "$binding" -n "$ns" \
-        --clusterrole="$role" \
-        --serviceaccount="${SA_NAMESPACE}:${SA_NAME}" \
-        --dry-run=client -o yaml | kubectl apply -f -
-    kubectl label rolebinding "$binding" -n "$ns" --overwrite \
-        app.kubernetes.io/part-of=production-debug-toolkit \
-        production-debug/env="$env_name" >/dev/null
+    kubectl delete rolebinding "$binding" -n "$ns" --ignore-not-found >/dev/null
+    kubectl create -f - <<YAML
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ${binding}
+  namespace: ${ns}
+  labels:
+    app.kubernetes.io/part-of: production-debug-toolkit
+    production-debug/env: ${env_name}
+  annotations:
+    ${EXPIRES_ANNOTATION}: "${expires_at}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ${role}
+subjects:
+  - kind: ServiceAccount
+    name: ${SA_NAME}
+    namespace: ${SA_NAMESPACE}
+YAML
+}
+
+show_expiry() {
+    local binding
+    for binding in "$READER_BINDING" "$LOG_BINDING"; do
+        has_binding "$binding" || continue
+        printf '%-22s expires-at=%s\n' "$binding" "$(kubectl get rolebinding "$binding" -n "$ns" \
+            -o go-template="{{index .metadata.annotations \"$EXPIRES_ANNOTATION\"}}")"
+    done
 }
 
 case "$action" in
@@ -138,6 +188,7 @@ case "$action" in
         label="$(kubectl get namespace "$ns" -o go-template='{{index .metadata.labels "production-debug/diagnosable"}}')"
         [ "$label" = "true" ] ||
             refuse "namespace '$ns' is not labelled production-debug/diagnosable=true by the platform"
+        compute_expiry
         bind "$READER_BINDING" "$READER_ROLE"
         if [ "$logs" = yes ]; then
             bind "$LOG_BINDING" "$LOG_ROLE"
@@ -145,6 +196,7 @@ case "$action" in
             # A grant without --logs must not inherit logs from an earlier grant.
             kubectl delete rolebinding "$LOG_BINDING" -n "$ns" --ignore-not-found >/dev/null
         fi
+        echo "access expires at $expires_at ($ttl); the grant reaper removes it then"
         check yes "$logs"
         ;;
     revoke)
@@ -157,6 +209,7 @@ case "$action" in
         workload=no log=no
         has_binding "$READER_BINDING" && workload=yes
         has_binding "$LOG_BINDING" && log=yes
+        show_expiry
         check "$workload" "$log"
         ;;
     *)

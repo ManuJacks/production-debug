@@ -148,7 +148,7 @@ Points worth knowing:
 - **`namespaceObject` is null for ClusterRoleBindings.** That's why Rule 1
   only applies when `isRoleBinding`.
 
-### The three rules
+### The five rules
 
 CEL has no `if`. "If A then B" is written `!A || B`. Read each rule as
 "if this binding is X, then it must satisfy Y".
@@ -158,6 +158,8 @@ CEL has no `if`. "If A then B" is written `!A || B`. Read each rule as
 | 1 | `!isRoleBinding \|\| !refsDebugRole \|\| (not a system namespace && nsApproved)` | If it is a RoleBinding to a debug role, the namespace must be approved and not a system namespace |
 | 2 | `isRoleBinding \|\| !refsDebugRole \|\| roleRef.name == 'prod-debug-cluster-reader'` | If it is a ClusterRoleBinding to a debug role, it must be Layer 1 |
 | 3 | `!bindsDebugIdentity \|\| refsDebugRole` | If it names the debug identity, it must reference a debug role |
+| 4 | `!isRoleBinding \|\| !refsDebugRole \|\| operation != CREATE \|\| (expiresAt is RFC 3339 UTC && creation < expiresAt <= creation + 24h10m)` | If it is a new grant, it must say when it expires, at most a day ahead |
+| 5 | `!isRoleBinding \|\| !refsDebugRole \|\| operation != UPDATE \|\| expiresAt == oldExpiresAt` | If it is an existing grant, its expiry cannot change |
 
 **Rule 1 applies to any subject.** Binding `prod-debug-reader` to *another*
 ServiceAccount in an unapproved namespace is also denied. The roles exist
@@ -167,15 +169,28 @@ for production-debug, so they follow its rules.
 ClusterRoleBinding of `cluster-admin` to the debug ServiceAccount, and the
 read-only design would be gone.
 
+**Rules 4 and 5 make grants temporary.** Admission CEL has no "now", so
+Rule 4 measures the expiry against `object.metadata.creationTimestamp`. The
+API server sets that before validating admission runs on CREATE (also with
+`--dry-run=server`). That gives a cap relative to creation. The 10 minutes
+over 24 h absorb clock skew between the operator's machine, which computes
+the expiry, and the API server. On UPDATE `creationTimestamp` is old, so the
+cap cannot be re-checked. Rule 5 therefore freezes the expiry instead:
+extending access means revoke and grant again, and each grant is a separate
+audited event. The `prod-debug-grant-reaper` CronJob (`k8s/grant-reaper.yaml`)
+deletes grants every 5 minutes once their time has passed. Admission only
+gates writes, so something has to remove them.
+
 ## 5. Behaviour you must know (and will be asked about)
 
 1. **It only checks new requests.** A binding created before the label was
    removed *keeps working*. Admission is a gate on writes, not a scanner.
-   `test-access-guard.sh` case 15 proves this. When you withdraw approval,
+   `test-access-guard.sh` case 25 proves this. When you withdraw approval,
    also revoke the bindings.
 2. **UPDATE is checked too.** Even a harmless label change on a binding that
-   no longer complies is denied (case 16).
-3. **DELETE is never matched.** Revoking always works (case 17). Matching
+   no longer complies is denied (case 26).
+3. **DELETE is never matched.** Revoking always works (cases 24 and 27). The
+   grant reaper depends on this too. Matching
    DELETE could lock you out of cleaning up.
 4. **It takes effect after a few seconds.** The API server loads and compiles
    policies asynchronously. A request sent right after `kubectl apply` may
@@ -216,7 +231,7 @@ read-only design would be gone.
 
 ## 6. Testing it
 
-### Automated: 17 live cases
+### Automated: 27 live cases
 
 ```bash
 kubectl apply -k k8s/                                   # or: -f k8s/rbac.yaml -f k8s/admission-policy.yaml
@@ -231,9 +246,9 @@ kind for every pull request. Expected output:
 Rule 1: production-debug roles only in labelled namespaces
  ok    1 allow reader into labelled namespace
  ...
- ok   17 allow deleting it is never blocked
+ ok   27 allow deleting it is never blocked
 
-all 17 cases matched
+all 27 cases matched
 ```
 
 ### By hand

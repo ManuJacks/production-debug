@@ -9,6 +9,7 @@ explicit grant; it must never read Secrets or ConfigMaps or change anything.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -129,10 +130,13 @@ echo "$*" >> "$CALLS"
 case "$1 $2" in
   "config current-context") echo "$FAKE_CONTEXT" ;;
   "get namespace") case "$*" in *go-template*) echo "${FAKE_LABEL-true}" ;; esac ;;
-  "get rolebinding") grep -qx "$3" "$STATE" 2>/dev/null ;;
-  "create rolebinding") grep -qx "$3" "$STATE" || echo "$3" >> "$STATE"; echo "kind: RoleBinding" ;;
-  "apply -f") cat >/dev/null ;;
-  "label rolebinding") exit 0 ;;
+  "get rolebinding")
+    grep -qx "$3" "$STATE" 2>/dev/null || exit 1
+    case "$*" in *go-template*) sed -n 's/^    production-debug\/expires-at: "\(.*\)"$/\1/p' "$STATE.$3" ;; esac ;;
+  "create -f")
+    doc="$(cat)"; name="$(sed -n 's/^  name: //p' <<<"$doc" | head -n 1)"
+    grep -qx "$name" "$STATE" || echo "$name" >> "$STATE"
+    printf '%s\n' "$doc" > "$STATE.$name"; echo "rolebinding/$name created" ;;
   "delete rolebinding")
     shift 2
     for a in "$@"; do case "$a" in -*) break ;; *) sed -i "/^$a\$/d" "$STATE" ;; esac; done ;;
@@ -175,6 +179,7 @@ def fake(tmp_path):
         )
 
     run.bindings = lambda: state.read_text().split()
+    run.manifest = lambda name: yaml.safe_load((tmp_path / f"state.{name}").read_text())
     run.calls = lambda: calls.read_text()
     return run
 
@@ -243,7 +248,7 @@ def test_grant_refusals_create_nothing(fake, args, extra, message):
     assert result.returncode == 2
     assert message in result.stderr
     assert fake.bindings() == []
-    assert "create rolebinding" not in fake.calls()
+    assert "create -f" not in fake.calls()
 
 
 @pytest.mark.parametrize(
@@ -326,9 +331,95 @@ def test_policy_role_names_match_rbac():
     assert in_policy == in_rbac
 
 
-def test_policy_has_three_rules_with_messages():
+def test_policy_has_five_rules_with_messages():
     policy, _ = _policy()
     validations = policy["spec"]["validations"]
-    assert len(validations) == 3
+    assert len(validations) == 5
     for v in validations:
         assert v["messageExpression"] and v["reason"] == "Forbidden"
+
+
+# --- grant expiry (ADR-SEC-001 section 7, item 2) -----------------------------
+
+EXPIRES = "production-debug/expires-at"
+
+
+def _expiry(fake, name):
+    from datetime import datetime, timezone
+
+    value = fake.manifest(name)["metadata"]["annotations"][EXPIRES]
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", value), value
+    expires = datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc
+    )
+    return (expires - datetime.now(timezone.utc)).total_seconds()
+
+
+def test_grant_expires_after_four_hours_by_default(fake):
+    result = fake("--env", "lab", "grant", "app-team-a")
+    assert result.returncode == 0, result.stderr
+    assert 4 * 3600 - 120 < _expiry(fake, "prod-debug-reader") <= 4 * 3600
+    assert "access expires at" in result.stdout
+
+
+def test_ttl_applies_to_both_layers(fake):
+    result = fake("--env", "lab", "grant", "app-team-b", "--logs", "--ttl", "30m")
+    assert result.returncode == 0, result.stderr
+    for name in ("prod-debug-reader", "prod-debug-log-reader"):
+        assert 1800 - 120 < _expiry(fake, name) <= 1800
+
+
+def test_grant_labels_and_subject_are_set_at_creation(fake):
+    fake("--env", "lab", "grant", "app-team-a")
+    rb = fake.manifest("prod-debug-reader")
+    assert rb["metadata"]["labels"]["production-debug/env"] == "lab"
+    assert rb["roleRef"] == {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "ClusterRole",
+        "name": "prod-debug-reader",
+    }
+    assert rb["subjects"] == [
+        {"kind": "ServiceAccount", "name": "prod-debug-sa", "namespace": "debug-system"}
+    ]
+
+
+def test_regrant_replaces_the_binding_instead_of_updating_it(fake):
+    fake("--env", "lab", "grant", "app-team-a", "--ttl", "1h")
+    fake("--env", "lab", "grant", "app-team-a", "--ttl", "2h")
+    calls = fake.calls().splitlines()
+    deletes = [
+        i
+        for i, c in enumerate(calls)
+        if c.startswith("delete rolebinding prod-debug-reader ")
+    ]
+    creates = [i for i, c in enumerate(calls) if c.startswith("create -f")]
+    assert len(deletes) == 2 and len(creates) == 2
+    assert deletes[1] < creates[1]
+    assert 7200 - 120 < _expiry(fake, "prod-debug-reader") <= 7200
+    assert not any(c.startswith(("apply", "label", "annotate")) for c in calls)
+
+
+@pytest.mark.parametrize("ttl", ["0m", "4m", "25h", "1441m", "1d", "4", "-1h", "h"])
+def test_ttl_outside_limits_is_refused(fake, ttl):
+    result = fake("--env", "lab", "grant", "app-team-a", "--ttl", ttl)
+    assert result.returncode == 2
+    assert fake.bindings() == []
+
+
+@pytest.mark.parametrize("ttl", ["5m", "24h", "1440m"])
+def test_ttl_limits_are_inclusive(fake, ttl):
+    assert fake("--env", "lab", "grant", "app-team-a", "--ttl", ttl).returncode == 0
+
+
+def test_check_reports_expiry(fake):
+    fake("--env", "lab", "grant", "app-team-a")
+    result = fake("check", "app-team-a")
+    assert re.search(r"prod-debug-reader\s+expires-at=\d{4}-", result.stdout)
+
+
+def test_policy_requires_an_expiry_and_freezes_it():
+    policy, _ = _policy()
+    text = yaml.safe_dump(policy)
+    assert EXPIRES in text
+    assert "duration('24h10m')" in text
+    assert "variables.expiresAt == variables.oldExpiresAt" in text
