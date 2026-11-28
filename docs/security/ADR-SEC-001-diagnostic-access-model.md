@@ -143,6 +143,18 @@ create or update, whether it comes from kubectl, GitOps or automation:
    ServiceAccount, as the User `system:serviceaccount:debug-system:prod-debug-sa`,
    and through the Group `system:serviceaccounts:debug-system`. Nobody can
    give it `view`, `edit` or `cluster-admin`.
+4. A new production-debug RoleBinding must carry
+   `production-debug/expires-at` (RFC 3339 UTC), no more than 24 hours after
+   its creation (plus 10 minutes for clock skew).
+5. An update cannot change or remove that expiry. Longer access is a new
+   grant.
+
+The `prod-debug-grant-reaper` CronJob (`k8s/grant-reaper.yaml`) deletes
+grants whose expiry has passed, and fails closed on grants without one. It
+runs every 5 minutes with a ClusterRole that can list RoleBindings and
+delete only those named `prod-debug-reader` or `prod-debug-log-reader`, so
+it can only take access away. `grant --ttl` (default 4h, 5m to 24h) sets the
+expiry.
 
 Settings:
 
@@ -257,10 +269,13 @@ from inside the `production-debug` pod (image `0.2.0`) and by impersonation:
    - A broken `Fail` policy blocks every RoleBinding and ClusterRoleBinding
      write in the cluster. Policy changes must be tested on kind or with a
      scratch copy first (guide, section 5, item 7).
-2. **Grants do not expire.** Access lasts until `revoke` is run. A forgotten
-   revoke leaves standing access in that namespace. Follow-up: an expiry
-   annotation on the binding plus a reaper, or a short-lived token-based
-   grant.
+2. **Resolved: grants expire.** Every grant carries an expiry (default 4 h,
+   at most 24 h). Rules 4 and 5 (section 3.4) enforce it, and the grant
+   reaper removes it once it passes. Remaining limits: access can outlive its
+   expiry by up to about 5 minutes (the reaper interval), or longer if the
+   reaper is not running, for example when its image cannot be pulled, so
+   watch for failed `prod-debug-grant-reaper` Jobs. Grants made before this
+   change have no expiry; the reaper removes them on its first run.
 3. **No API audit trail yet.** The kubernetes-in-finance cluster does not
    enable API server audit logging, so grants, revokes and the identity's
    reads are not recorded server-side. Follow-up: an audit policy in the
@@ -289,4 +304,5 @@ from inside the `production-debug` pod (image `0.2.0`) and by impersonation:
 | 2026-11-25 | Tenant namespaces `app-team-a`, `app-team-b` | kubernetes-in-finance PR #7 |
 | 2026-11-25 | Allowlist, log layer, `can-i` subresource fix, this record | PR #15, ADR 008 |
 | 2026-11-25 | Admission policy `production-debug-access-guard`, platform approval label, live test script, study guide | PR #16; kubernetes-in-finance PR #8 |
-| 2026-11-27 | Debug pod self-expiry (`activeDeadlineSeconds: 3600`) | This PR |
+| 2026-11-27 | Debug pod self-expiry (`activeDeadlineSeconds: 3600`) | PR #17 |
+| 2026-11-27 | Grant expiry: `--ttl`, admission Rules 4 and 5, grant reaper CronJob | This PR |

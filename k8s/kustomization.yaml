@@ -4,4 +4,5 @@ kind: Kustomization
 resources:
   - rbac.yaml
   - admission-policy.yaml
+  - grant-reaper.yaml
   - debug-pod.yaml

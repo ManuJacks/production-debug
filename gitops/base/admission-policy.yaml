@@ -12,6 +12,12 @@
 #   Rule 3  The production-debug identity may only be bound to production-debug
 #           roles, so nobody can quietly give it "view", "edit" or
 #           "cluster-admin".
+#   Rule 4  A new RoleBinding to a production-debug role must say when it
+#           expires (annotation production-debug/expires-at, RFC 3339 UTC),
+#           at most 24 h after it is created (plus 10 min for clock skew).
+#           The prod-debug-grant-reaper CronJob deletes it once that passes.
+#   Rule 5  An update cannot change or remove that expiry. Longer access is a
+#           new grant, so every extension is a separate, audited decision.
 #
 # The platform (kubernetes-in-finance kubernetes/tenants/) owns the label.
 # Deleting a binding is never blocked, so revoking always works.
@@ -44,6 +50,16 @@ spec:
           (s.kind == 'Group' && s.name == 'system:serviceaccounts:debug-system'))
     - name: isRoleBinding
       expression: "request.kind.kind == 'RoleBinding'"
+    - name: expiresAt
+      expression: >-
+        has(object.metadata.annotations) &&
+        'production-debug/expires-at' in object.metadata.annotations ?
+        object.metadata.annotations['production-debug/expires-at'] : ''
+    - name: oldExpiresAt
+      expression: >-
+        oldObject != null && has(oldObject.metadata.annotations) &&
+        'production-debug/expires-at' in oldObject.metadata.annotations ?
+        oldObject.metadata.annotations['production-debug/expires-at'] : ''
     - name: nsApproved
       expression: >-
         namespaceObject != null &&
@@ -74,6 +90,28 @@ spec:
       messageExpression: >-
         'the production-debug identity may only be bound to production-debug
         roles, not ' + object.roleRef.kind + '/' + object.roleRef.name
+      reason: Forbidden
+    # Rule 4. creationTimestamp is already set when admission runs on CREATE.
+    - expression: >-
+        !variables.isRoleBinding || !variables.refsDebugRole ||
+        request.operation != 'CREATE' ||
+        (variables.expiresAt.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') &&
+         timestamp(variables.expiresAt) > timestamp(object.metadata.creationTimestamp) &&
+         timestamp(variables.expiresAt) - timestamp(object.metadata.creationTimestamp) <= duration('24h10m'))
+      messageExpression: >-
+        'production-debug grants must expire: annotation
+        production-debug/expires-at must be an RFC 3339 UTC time
+        (YYYY-MM-DDTHH:MM:SSZ) within 24h of creation, got "' +
+        variables.expiresAt + '"'
+      reason: Forbidden
+    # Rule 5
+    - expression: >-
+        !variables.isRoleBinding || !variables.refsDebugRole ||
+        request.operation != 'UPDATE' ||
+        variables.expiresAt == variables.oldExpiresAt
+      messageExpression: >-
+        'production-debug/expires-at cannot be changed on an existing grant
+        (was "' + variables.oldExpiresAt + '"); revoke and grant again'
       reason: Forbidden
 ---
 apiVersion: admissionregistration.k8s.io/v1

@@ -162,10 +162,15 @@ jobs:
       - name: Cleanup is idempotent
         run: bash demo/run.sh cleanup
 
-      - name: Admission policy guards production-debug access (17 live cases)
+      - name: Admission policy guards production-debug access (live cases)
         run: |
           kubectl apply -f k8s/rbac.yaml -f k8s/admission-policy.yaml
           bash scripts/test-access-guard.sh kind-pd-e2e
+
+      - name: Grant reaper removes expired grants (live)
+        run: |
+          kubectl apply -f k8s/grant-reaper.yaml
+          bash scripts/test-grant-reaper.sh kind-pd-e2e production-debug:ci
 
       - name: Upload incident archive
         if: always()
