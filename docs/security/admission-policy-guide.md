@@ -189,7 +189,7 @@ gates writes, so something has to remove them.
    also revoke the bindings.
 2. **UPDATE is checked too.** Even a harmless label change on a binding that
    no longer complies is denied (case 26).
-3. **DELETE is never matched.** Revoking always works (cases 24 and 27). The
+3. **DELETE is never matched.** Revoking always works (cases 23 and 27). The
    grant reaper depends on this too. Matching
    DELETE could lock you out of cleaning up.
 4. **It takes effect after a few seconds.** The API server loads and compiles
