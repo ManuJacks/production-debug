@@ -271,10 +271,12 @@ from inside the `production-debug` pod (image `0.2.0`) and by impersonation:
 5. **Layer 2 still includes some potentially sensitive metadata.** Pod specs
    and environment variables set inline in workload specs are readable once
    Layer 2 is granted. Secrets referenced by name are not readable.
-6. **The general-purpose debug pod has no self-expiry.** It mounts a
-   ServiceAccount token (`automountServiceAccountToken: true`) and has no
-   `activeDeadlineSeconds`, unlike the demo pod. Follow-up: align it with the
-   demo pod.
+6. **Resolved: the general-purpose debug pod expires on its own.** Like the
+   demo pod, `k8s/debug-pod.yaml` and `gitops/base/debug-pod.yaml` set
+   `activeDeadlineSeconds: 3600`, so a forgotten pod and its mounted
+   ServiceAccount token stop after 1 hour; a test enforces it. Longer
+   incidents recreate the pod. Remaining limit: the RBAC grant itself still
+   lasts until `revoke` (item 2), and the privileged variant is unchanged.
 7. **Breaking CLI change.** `grant` requires `--env` since this change. The
    v0.2.0 form (`grant <ns>`) is refused.
 
@@ -286,4 +288,5 @@ from inside the `production-debug` pod (image `0.2.0`) and by impersonation:
 | 2026-11-25 | Old binding removed from the HA lab cluster; v0.2.0 manifests applied | Operator action, verified as in section 6 |
 | 2026-11-25 | Tenant namespaces `app-team-a`, `app-team-b` | kubernetes-in-finance PR #7 |
 | 2026-11-25 | Allowlist, log layer, `can-i` subresource fix, this record | PR #15, ADR 008 |
-| 2026-11-25 | Admission policy `production-debug-access-guard`, platform approval label, live test script, study guide | This PR; kubernetes-in-finance tenant label PR |
+| 2026-11-25 | Admission policy `production-debug-access-guard`, platform approval label, live test script, study guide | PR #16; kubernetes-in-finance PR #8 |
+| 2026-11-27 | Debug pod self-expiry (`activeDeadlineSeconds: 3600`) | This PR |
