@@ -10,6 +10,9 @@ spec:
   serviceAccountName: prod-debug-sa
   automountServiceAccountToken: true
   restartPolicy: Never
+  # Self-expiry: the pod (and its mounted token) ends after 1 h even if no
+  # one deletes it. Recreate it to keep working (ADR-SEC-001, section 7).
+  activeDeadlineSeconds: 3600
   securityContext:
     runAsNonRoot: true
     runAsUser: 10001

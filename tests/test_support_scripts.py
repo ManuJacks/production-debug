@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
@@ -48,6 +50,14 @@ def test_debug_pod_security_contract_is_explicit() -> None:
     assert "image: ghcr.io/manujacks/production-debug:latest" not in manifest
     assert "mountPath: /tmp" in manifest
     assert "mountPath: /tmp/incident-bundle" in manifest
+
+
+def test_debug_pods_expire_on_their_own() -> None:
+    for path in ("k8s/debug-pod.yaml", "gitops/base/debug-pod.yaml"):
+        manifest = yaml.safe_load((PROJECT_ROOT / path).read_text(encoding="utf-8"))
+        deadline = manifest["spec"].get("activeDeadlineSeconds")
+        assert deadline is not None, f"{path} has no activeDeadlineSeconds"
+        assert 0 < deadline <= 3600, path
 
 
 def test_privileged_pod_is_explicitly_separate() -> None:

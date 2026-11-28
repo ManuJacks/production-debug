@@ -4,6 +4,8 @@ All notable changes are recorded here. The format follows Keep a Changelog and t
 
 ## [Unreleased]
 
+- Security: the general-purpose debug pod (`k8s/debug-pod.yaml`, `gitops/base/debug-pod.yaml`) now sets `activeDeadlineSeconds: 3600`, like the demo pod, so a forgotten pod and its mounted ServiceAccount token stop after 1 hour. Enforced by `test_debug_pods_expire_on_their_own`. **Operator impact:** recreate the pod for incidents longer than an hour. Resolves ADR-SEC-001 §7 item 6.
+
 - Security: added the `production-debug-access-guard` ValidatingAdmissionPolicy (`k8s/admission-policy.yaml`, also in `gitops/base`). The API server now refuses (1) production-debug RoleBindings outside namespaces labelled `production-debug/diagnosable=true` or in system namespaces, (2) ClusterRoleBindings of the workload or log layers, and (3) binding the production-debug identity (ServiceAccount, User or Group form) to any other role. It matches CREATE and UPDATE only, so revoke always works. **Operator impact:** requires Kubernetes 1.30+, and tenant namespaces must carry the platform label before they can be granted; `grant-incident-access.sh` checks the label too.
 - Added `scripts/test-access-guard.sh`: 17 live admission cases using `--dry-run=server`. Run in CI on kind.
 - Docs: `docs/security/admission-policy-guide.md` covers the request path, the anatomy of a policy, the rules line by line, gotchas, debugging and rehearsal drills. ADR-SEC-001 gains section 3.4 and its residual risks are updated.
