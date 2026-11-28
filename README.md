@@ -490,10 +490,14 @@ kubectl exec -it -n debug-system \
 The pod starts with no access to any workload namespace. Grant read-only access to the incident namespace only, and revoke it when the incident closes (run with operator credentials). The namespace must be listed in `access/<env>.namespaces`, and the current kubeconfig context must match that file's `context=`. Without `--logs`, the MCP log tool and the evidence collector's log steps are Forbidden:
 
 ```bash
-scripts/grant-incident-access.sh --env lab grant app-team-a          # workload metadata only
+scripts/grant-incident-access.sh --env lab grant app-team-a          # workload metadata only, expires in 4h
 scripts/grant-incident-access.sh --env lab grant app-team-a --logs   # plus container logs
+scripts/grant-incident-access.sh --env lab grant app-team-a --ttl 30m  # 5m to 24h
+scripts/grant-incident-access.sh check app-team-a                    # what it can do, and when that expires
 scripts/grant-incident-access.sh revoke app-team-a
 ```
+
+Every grant expires. The admission guard refuses a grant without an expiry, or one more than 24 hours ahead, and the `prod-debug-grant-reaper` CronJob in `debug-system` removes grants once they expire. To extend access, grant again.
 
 Upgrading from a release before this change: the old cluster-wide binding is not removed by `kubectl apply`. Delete it explicitly:
 
